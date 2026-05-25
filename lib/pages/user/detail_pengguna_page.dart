@@ -16,10 +16,10 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   // 👇 Tambah controller khusus untuk golongan darah yang dikunci
-  final TextEditingController _bloodTypeController = TextEditingController(); 
-  
-  bool _isLoadingData = true; 
-  bool _isSavingData = false; 
+  final TextEditingController _bloodTypeController = TextEditingController();
+
+  bool _isLoadingData = true;
+  bool _isSavingData = false;
 
   @override
   void initState() {
@@ -41,14 +41,15 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
           setState(() {
             _namaController.text = data['namaLengkap'] ?? '';
             _phoneController.text = data['noHp'] ?? '';
-            _emailController.text = currentUser.email ?? '';
-            
+            _emailController.text = data['email'] ?? currentUser.email ?? '';
+
             // 👇 Logika Golongan Darah: Isi kalau ada, tampilkan pesan kalau kosong
             String? savedBloodType = data['golonganDarah'];
             if (savedBloodType != null && savedBloodType.isNotEmpty) {
               _bloodTypeController.text = savedBloodType;
             } else {
-              _bloodTypeController.text = 'Belum Terverifikasi (Diisi oleh PMI)';
+              _bloodTypeController.text =
+                  'Belum Terverifikasi (Diisi oleh PMI)';
             }
           });
         }
@@ -92,7 +93,7 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
         'namaLengkap': nama,
         'noHp': phone,
         // Status otomatis jadi Pending jika profil diupdate agar admin ngecek lagi
-        'status': 'Pending', 
+        'status': 'Pending',
       });
 
       if (mounted) {
@@ -133,7 +134,7 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: _isLoadingData
-            ? const Center(child: CircularProgressIndicator()) 
+            ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(10, 6, 10, 16),
                 child: Container(
@@ -150,8 +151,8 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
                       const SizedBox(height: 18),
                       _buildSectionTitle('Data Pribadi'),
                       const SizedBox(height: 14),
-                      
-                      const _FieldLabel('Nama Lengkap'), 
+
+                      const _FieldLabel('Nama Lengkap'),
                       const SizedBox(height: 6),
                       _buildTextField(
                         controller: _namaController,
@@ -159,29 +160,31 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
                         isActive: true,
                       ),
                       const SizedBox(height: 12),
-                      
+
                       const _FieldLabel('Nomor Hp'),
                       const SizedBox(height: 6),
                       _buildTextField(
                         controller: _phoneController,
                         hintText: 'Masukkan Nomor Hp',
-                        keyboardType: TextInputType.phone, 
+                        keyboardType: TextInputType.phone,
                       ),
                       const SizedBox(height: 12),
-                      
-                      const _FieldLabel('Email (Tidak dapat diubah)'), 
+
+                      const _FieldLabel('Email (Tidak dapat diubah)'),
                       const SizedBox(height: 6),
                       _buildTextField(
                         controller: _emailController,
                         hintText: 'Masukkan Email',
-                        readOnly: true, 
+                        readOnly: true,
                       ),
                       const SizedBox(height: 16),
-                      
-                      _buildSectionTitle('Data Medis'), // 👇 Ubah judul biar lebih profesional
+
+                      _buildSectionTitle(
+                          'Data Medis'), // 👇 Ubah judul biar lebih profesional
                       const SizedBox(height: 14),
-                      
-                      const _FieldLabel('Golongan Darah (Diisi oleh petugas PMI)'), 
+
+                      const _FieldLabel(
+                          'Golongan Darah (Diisi oleh petugas PMI)'),
                       const SizedBox(height: 6),
                       // 👇 Menggunakan text field yang dikunci
                       _buildTextField(
@@ -190,7 +193,7 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
                         readOnly: true,
                       ),
                       const SizedBox(height: 18),
-                      
+
                       _buildSaveButton(context),
                       const SizedBox(height: 180),
                     ],
@@ -274,7 +277,7 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
         cursorColor: AppColors.primary,
         style: TextStyle(
           fontSize: 12,
-          color: readOnly ? AppColors.textGrey : AppColors.textDark, 
+          color: readOnly ? AppColors.textGrey : AppColors.textDark,
         ),
         decoration: InputDecoration(
           hintText: hintText,
@@ -283,7 +286,7 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
             color: AppColors.textGrey,
           ),
           filled: true,
-          fillColor: readOnly ? AppColors.offWhite : AppColors.white, 
+          fillColor: readOnly ? AppColors.offWhite : AppColors.white,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 11,
@@ -312,7 +315,7 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
       width: double.infinity,
       height: 42,
       child: ElevatedButton(
-        onPressed: _isSavingData ? null : _saveUserData, 
+        onPressed: _isSavingData ? null : _saveUserData,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
@@ -321,19 +324,19 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        child: _isSavingData 
-        ? const SizedBox(
-            width: 20, 
-            height: 20, 
-            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-          )
-        : const Text(
-          'Simpan',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: _isSavingData
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2))
+            : const Text(
+                'Simpan',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }

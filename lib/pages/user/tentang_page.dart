@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/about_us_defaults.dart';
 import '../../core/theme/app_colors.dart';
 
 /// Halaman tentang aplikasi.
@@ -66,15 +68,71 @@ class TentangPage extends StatelessWidget {
   }
 
   Widget _buildContent() {
-    return const Text(
-      'Reliable Emergency Donor adalah aplikasi donor darah di Nias yang dirancang untuk memudahkan masyarakat dalam berpartisipasi pada kegiatan kemanusiaan. Melalui aplikasi ini, pendonor dapat memantau jadwal event donor darah, mendaftar dengan mudah, dan ikut membantu menyelamatkan nyawa di sekitar Nias.',
-      textAlign: TextAlign.left,
-      style: TextStyle(
-        fontSize: 12.5,
-        height: 1.55,
-        color: AppColors.textGrey,
-        fontWeight: FontWeight.w400,
-      ),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('app_settings')
+          .doc('about_us')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() as Map<String, dynamic>?;
+        final description = data?['description'] ?? AboutUsDefaults.description;
+        final contact = data?['contact'] ?? AboutUsDefaults.contact;
+        final address = data?['address'] ?? AboutUsDefaults.address;
+        final email = data?['email'] ?? AboutUsDefaults.email;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              description,
+              textAlign: TextAlign.left,
+              style: const TextStyle(
+                fontSize: 12.5,
+                height: 1.55,
+                color: AppColors.textGrey,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _InfoRow(icon: Icons.call_outlined, text: contact),
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.location_on_outlined, text: address),
+            const SizedBox(height: 10),
+            _InfoRow(icon: Icons.mail_outline, text: email),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoRow({
+    required this.icon,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: AppColors.textDark,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

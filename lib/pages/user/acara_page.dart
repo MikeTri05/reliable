@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import 'beranda_page.dart';
 import 'detail_acara_page.dart';
@@ -204,17 +205,17 @@ class AcaraPage extends StatelessWidget {
   void _onBottomTap(BuildContext context, int index) {
     if (index == 1) return;
     if (index == 0) {
-      Navigator.pushReplacement(
+      Navigator.push(
           context, MaterialPageRoute(builder: (_) => const BerandaPage()));
       return;
     }
     if (index == 2) {
-      Navigator.pushReplacement(
+      Navigator.push(
           context, MaterialPageRoute(builder: (_) => const KartuPage()));
       return;
     }
     if (index == 3) {
-      Navigator.pushReplacement(
+      Navigator.push(
           context, MaterialPageRoute(builder: (_) => const PenggunaPage()));
     }
   }
@@ -241,10 +242,14 @@ class AcaraPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
+                await AdminSession.clear();
                 if (context.mounted) {
                   Navigator.pop(dialogContext);
-                  Navigator.pushReplacement(context,
-                      MaterialPageRoute(builder: (_) => const LoginPage()));
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (route) => false,
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(

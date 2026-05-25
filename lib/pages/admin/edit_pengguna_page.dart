@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/profile_utils.dart';
 
 /// Halaman edit pengguna.
 class EditPenggunaPage extends StatefulWidget {
@@ -24,30 +25,45 @@ class _EditPenggunaPageState extends State<EditPenggunaPage> {
   late final TextEditingController _genderController;
   late final TextEditingController _alamatController;
 
-  String bloodType = 'A';
+  String bloodType = bloodTypeOptions.first;
   String statusAkun = 'Pending';
 
   @override
   void initState() {
     super.initState();
     // Mengisi kolom otomatis dengan data dari database
-    _namaController = TextEditingController(text: widget.userData['namaLengkap'] ?? '');
-    _emailController = TextEditingController(text: widget.userData['email'] ?? '');
-    _phoneController = TextEditingController(text: widget.userData['noHp'] ?? '');
-    _genderController = TextEditingController(text: widget.userData['jenisKelamin'] ?? '');
-    _alamatController = TextEditingController(text: widget.userData['alamat'] ?? '');
-    
-    bloodType = widget.userData['golonganDarah'] ?? 'A';
+    _namaController =
+        TextEditingController(text: widget.userData['namaLengkap'] ?? '');
+    _emailController =
+        TextEditingController(text: widget.userData['email'] ?? '');
+    _phoneController =
+        TextEditingController(text: widget.userData['noHp'] ?? '');
+    _genderController =
+        TextEditingController(text: widget.userData['jenisKelamin'] ?? '');
+    _alamatController =
+        TextEditingController(text: widget.userData['alamat'] ?? '');
+
+    bloodType = normalizeBloodType(widget.userData['golonganDarah']);
     statusAkun = widget.userData['status'] ?? 'Pending';
-    
-    // Validasi jaga-jaga kalau ada golongan darah di luar opsi
-    if (!['A', 'B', 'AB', 'O'].contains(bloodType)) {
-      bloodType = 'A';
-    }
+
     // Validasi jaga-jaga untuk status
-    if (!['Terverifikasi', 'Pending', 'Nonaktif'].contains(statusAkun)) {
+    if (!['Terverifikasi', 'Pending'].contains(statusAkun)) {
       statusAkun = 'Pending';
     }
+  }
+
+  Future<bool> _emailDipakaiPenggunaLain(String email) async {
+    final emailLower = normalizeEmail(email);
+    final usersRef = FirebaseFirestore.instance.collection('users');
+
+    final checks = await Future.wait([
+      usersRef.where('emailLower', isEqualTo: emailLower).limit(2).get(),
+      usersRef.where('email', isEqualTo: email).limit(2).get(),
+    ]);
+
+    return checks
+        .expand((snapshot) => snapshot.docs)
+        .any((doc) => doc.id != widget.userId);
   }
 
   @override
@@ -187,7 +203,9 @@ class _EditPenggunaPageState extends State<EditPenggunaPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _namaController.text.isNotEmpty ? _namaController.text : 'Tanpa Nama',
+                  _namaController.text.isNotEmpty
+                      ? _namaController.text
+                      : 'Tanpa Nama',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -201,10 +219,9 @@ class _EditPenggunaPageState extends State<EditPenggunaPage> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusAkun == 'Terverifikasi' 
-                        ? AppColors.successGreen.withOpacity(0.1) 
-                        : statusAkun == 'Pending' ? AppColors.pendingOrange.withOpacity(0.1) 
-                        : AppColors.inactivePink.withOpacity(0.1),
+                    color: statusAkun == 'Terverifikasi'
+                        ? AppColors.successGreen.withValues(alpha: 0.1)
+                        : AppColors.pendingOrange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -212,10 +229,9 @@ class _EditPenggunaPageState extends State<EditPenggunaPage> {
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      color: statusAkun == 'Terverifikasi' 
-                          ? AppColors.successGreen 
-                          : statusAkun == 'Pending' ? AppColors.pendingOrange 
-                          : AppColors.inactivePink,
+                      color: statusAkun == 'Terverifikasi'
+                          ? AppColors.successGreen
+                          : AppColors.pendingOrange,
                     ),
                   ),
                 ),
@@ -282,13 +298,14 @@ class _EditPenggunaPageState extends State<EditPenggunaPage> {
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: statusAkun,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textDark),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                    size: 18, color: AppColors.textDark),
                 style: const TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textDark,
                 ),
-                items: ['Terverifikasi', 'Pending', 'Nonaktif']
+                items: ['Terverifikasi', 'Pending']
                     .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                     .toList(),
                 onChanged: (val) {
@@ -418,7 +435,7 @@ class _EditPenggunaPageState extends State<EditPenggunaPage> {
             fontSize: 12,
             color: AppColors.textDark,
           ),
-          items: ['A', 'B', 'AB', 'O']
+          items: bloodTypeOptions
               .map(
                 (type) => DropdownMenuItem<String>(
                   value: type,
@@ -445,28 +462,50 @@ class _EditPenggunaPageState extends State<EditPenggunaPage> {
       child: ElevatedButton(
         onPressed: () async {
           try {
+            final email = _emailController.text.trim();
+            if (email.isEmpty || !email.contains('@')) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Format email tidak valid.')),
+              );
+              return;
+            }
+
+            final emailDipakai = await _emailDipakaiPenggunaLain(email);
+            if (emailDipakai) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Email ini sudah dipakai pengguna lain.'),
+                ),
+              );
+              return;
+            }
+
             // MENGGUNAKAN .update() UNTUK MEMPERBARUI DATA
             await FirebaseFirestore.instance
                 .collection('users')
                 .doc(widget.userId) // Menunjuk ke ID dokumen spesifik
                 .update({
               'namaLengkap': _namaController.text.trim(),
-              'email': _emailController.text.trim(),
+              'email': email,
+              'emailLower': normalizeEmail(email),
               'noHp': _phoneController.text.trim(),
               'jenisKelamin': _genderController.text.trim(),
               'alamat': _alamatController.text.trim(),
               'golonganDarah': bloodType,
               'status': statusAkun,
+              'updatedAt': FieldValue.serverTimestamp(),
             });
 
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Data pengguna berhasil diperbarui!')),
+                const SnackBar(
+                    content: Text('Data pengguna berhasil diperbarui!')),
               );
               Navigator.pop(context); // Kembali ke halaman sebelumnya
             }
           } catch (e) {
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Gagal memperbarui data: $e')),
               );

@@ -269,6 +269,7 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
             final targetEmail = dataMap['email']?.toString() ?? '';
             final newNama = dataMap['nama']?.toString() ?? '';
             final newKartu = dataMap['kartu']?.toString() ?? '-';
+            final targetGoldar = dataMap['goldar']?.toString() ?? '-';
             final String jumlahKantong =
                 dataMap['jumlahKantong']?.toString() ?? '1';
 
@@ -302,6 +303,7 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
               'waktuDaftar': FieldValue.serverTimestamp(),
               'userId': targetUserId,
               'email': targetEmail,
+              'golonganDarah': targetGoldar,
               'status': 'Selesai',
               'namaAcara': eventData['judul'] ?? widget.eventTitle,
               'tanggalPelaksanaan': eventData['tanggalPelaksanaan'] ?? '-',

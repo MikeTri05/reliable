@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -25,6 +26,26 @@ class _KeamananPageState extends State<KeamananPage> {
     emailController = TextEditingController(text: user?.email ?? '');
     passwordController = TextEditingController(text: '');
     confirmPasswordController = TextEditingController(text: '');
+    _loadProfileEmail();
+  }
+
+  Future<void> _loadProfileEmail() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (!mounted) return;
+
+      final data = doc.data();
+      emailController.text = data?['email'] ?? user.email ?? '';
+    } catch (_) {
+      if (!mounted) return;
+      emailController.text = user.email ?? '';
+    }
   }
 
   Future<void> _updateSecurityData() async {
@@ -58,16 +79,17 @@ class _KeamananPageState extends State<KeamananPage> {
       await user.updatePassword(newPassword);
 
       if (mounted) {
-        _showSnackBar('Password berhasil diperbarui!');
         setState(() {
           isEditing = false;
           passwordController.clear();
           confirmPasswordController.clear();
         });
+        _showSnackBar('Password berhasil diperbarui!');
+        Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
-        _showSnackBar('Sesi habis. Silakan login ulang untuk ganti password.');
+        _showSnackBar('Password gagal diperbarui. Silakan masuk ulang.');
       } else {
         _showSnackBar('Gagal: ${e.message}');
       }
@@ -236,10 +258,11 @@ class _KeamananPageState extends State<KeamananPage> {
         onPressed: isSaving
             ? null
             : () {
-                if (isEditing)
+                if (isEditing) {
                   _updateSecurityData();
-                else
+                } else {
                   _showSnackBar('Tekan ikon edit untuk mengubah password');
+                }
               },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,

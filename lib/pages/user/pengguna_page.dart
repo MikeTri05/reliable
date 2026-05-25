@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart'; // Wajib untuk autentikasi da
 import 'package:cloud_firestore/cloud_firestore.dart'; // Wajib untuk tarik data nama user
 import 'package:reliable_emergency_donor/pages/user/login_page.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import 'acara_page.dart';
 import 'beranda_page.dart';
@@ -193,6 +194,7 @@ class PenggunaPage extends StatelessWidget {
                         try {
                           await FirebaseAuth.instance
                               .signOut(); // Putus sesi dari Firebase
+                          await AdminSession.clear();
 
                           if (context.mounted) {
                             Navigator.pop(dialogContext); // Tutup dialog dulu
@@ -283,6 +285,7 @@ class PenggunaPage extends StatelessWidget {
           Map<String, dynamic> data =
               snapshot.data!.data() as Map<String, dynamic>;
           nama = data['namaLengkap'] ?? 'Tanpa Nama';
+          email = data['email'] ?? currentUser.email ?? '-';
         }
 
         return Material(
@@ -429,7 +432,7 @@ class PenggunaPage extends StatelessWidget {
     if (index == 3) return;
 
     if (index == 0) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const BerandaPage(),
@@ -439,7 +442,7 @@ class PenggunaPage extends StatelessWidget {
     }
 
     if (index == 1) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const AcaraPage(),
@@ -449,7 +452,7 @@ class PenggunaPage extends StatelessWidget {
     }
 
     if (index == 2) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const KartuPage(),

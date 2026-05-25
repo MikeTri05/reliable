@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/event_utils.dart';
 import 'beranda_penyelenggara_page.dart';
 import 'data_donor_penyelenggara_page.dart';
 import 'data_pengguna_penyelenggara_page.dart';
@@ -211,6 +213,8 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
     required Map<String, dynamic> eventData,
     required String eventId,
   }) {
+    final completed = isEventCompleted(eventData);
+
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -238,6 +242,22 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
         ),
         child: Row(
           children: [
+            if (completed) ...[
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: AppColors.successGreenSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  size: 16,
+                  color: AppColors.successGreen,
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,7 +300,7 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
     if (index == 1) return;
 
     if (index == 0) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const BerandaPenyelenggaraPage(),
@@ -290,7 +310,7 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
     }
 
     if (index == 2) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const DataDonorPenyelenggaraPage(),
@@ -300,7 +320,7 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
     }
 
     if (index == 3) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const DataPenggunaPenyelenggaraPage(),
@@ -340,10 +360,14 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
               ),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.pushAndRemoveUntil(
-                  context,
+              onPressed: () async {
+                final dialogNavigator = Navigator.of(dialogContext);
+                final rootNavigator = Navigator.of(context);
+                await AdminSession.clear();
+                if (!context.mounted || !dialogContext.mounted) return;
+
+                dialogNavigator.pop();
+                rootNavigator.pushAndRemoveUntil(
                   MaterialPageRoute(
                     builder: (_) => const LoginPenyelenggaraPage(),
                   ),

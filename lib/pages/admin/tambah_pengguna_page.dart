@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Wajib ditambahkan untuk memanggil Firebase
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/profile_utils.dart';
 
 /// Halaman tambah pengguna.
 class TambahPenggunaPage extends StatefulWidget {
@@ -17,7 +18,7 @@ class _TambahPenggunaPageState extends State<TambahPenggunaPage> {
   late final TextEditingController _genderController;
   late final TextEditingController _alamatController;
 
-  String bloodType = 'A';
+  String bloodType = bloodTypeOptions.first;
 
   @override
   void initState() {
@@ -38,6 +39,18 @@ class _TambahPenggunaPageState extends State<TambahPenggunaPage> {
     _genderController.dispose();
     _alamatController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _emailSudahTerdaftar(String email) async {
+    final emailLower = normalizeEmail(email);
+    final usersRef = FirebaseFirestore.instance.collection('users');
+
+    final checks = await Future.wait([
+      usersRef.where('emailLower', isEqualTo: emailLower).limit(1).get(),
+      usersRef.where('email', isEqualTo: email).limit(1).get(),
+    ]);
+
+    return checks.any((snapshot) => snapshot.docs.isNotEmpty);
   }
 
   @override
@@ -244,7 +257,7 @@ class _TambahPenggunaPageState extends State<TambahPenggunaPage> {
             fontSize: 12,
             color: AppColors.textDark,
           ),
-          items: ['A', 'B', 'AB', 'O']
+          items: bloodTypeOptions
               .map(
                 (type) => DropdownMenuItem(
                   value: type,
@@ -284,29 +297,48 @@ class _TambahPenggunaPageState extends State<TambahPenggunaPage> {
             return;
           }
 
+          if (!email.contains('@')) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Format email tidak valid.')),
+            );
+            return;
+          }
+
           // 3. Simpan ke Firebase Database
           try {
+            final emailSudahAda = await _emailSudahTerdaftar(email);
+            if (emailSudahAda) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Email ini sudah terdaftar sebelumnya.'),
+                ),
+              );
+              return;
+            }
+
             await FirebaseFirestore.instance.collection('users').add({
               'namaLengkap': nama,
               'email': email,
+              'emailLower': normalizeEmail(email),
               'noHp': phone,
               'jenisKelamin': gender,
               'alamat': alamat,
               'golonganDarah': bloodType,
               'status': 'Terverifikasi', // Status bawaan
-              'role': 'pendonor',        // Penting! Agar terbaca di fitur lain
+              'role': 'pendonor', // Penting! Agar terbaca di fitur lain
               'tanggalDaftar': FieldValue.serverTimestamp(),
             });
 
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Pengguna berhasil ditambahkan!')),
               );
               // Tutup halaman setelah berhasil
-              Navigator.pop(context); 
+              Navigator.pop(context);
             }
           } catch (e) {
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Gagal menambahkan pengguna: $e')),
               );

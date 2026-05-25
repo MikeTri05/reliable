@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import 'acara_page.dart';
 import 'beranda_page.dart';
@@ -237,7 +238,7 @@ class KartuPage extends StatelessWidget {
               right: 56,
               top: 68,
               child: Container(
-                width: 32, // Sedikit diperbesar agar teks nyaman
+                width: 42,
                 height: 32,
                 decoration: BoxDecoration(
                   color: AppColors.primary,
@@ -248,7 +249,7 @@ class KartuPage extends StatelessWidget {
                   child: Text(
                     golDarah,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: AppColors.white,
                     ),
@@ -352,7 +353,7 @@ class KartuPage extends StatelessWidget {
     if (index == 2) return;
 
     if (index == 0) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const BerandaPage()),
       );
@@ -360,7 +361,7 @@ class KartuPage extends StatelessWidget {
     }
 
     if (index == 1) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const AcaraPage()),
       );
@@ -368,7 +369,7 @@ class KartuPage extends StatelessWidget {
     }
 
     if (index == 3) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const PenggunaPage()),
       );
@@ -397,11 +398,13 @@ class KartuPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
+                await AdminSession.clear();
                 if (context.mounted) {
                   Navigator.pop(dialogContext);
-                  Navigator.pushReplacement(
+                  Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (route) => false,
                   );
                 }
               },

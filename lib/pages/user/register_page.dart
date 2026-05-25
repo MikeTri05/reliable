@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/profile_utils.dart';
 import '../../widgets/app_logo_header.dart';
 
 /// Halaman daftar akun
@@ -21,8 +22,24 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _isLoading = false;
 
+  Future<bool> _emailSudahTerdaftar(String email) async {
+    final emailLower = normalizeEmail(email);
+    final usersRef = FirebaseFirestore.instance.collection('users');
+
+    final emailLowerResult = await usersRef
+        .where('emailLower', isEqualTo: emailLower)
+        .limit(1)
+        .get();
+    if (emailLowerResult.docs.isNotEmpty) return true;
+
+    final emailResult =
+        await usersRef.where('email', isEqualTo: email).limit(1).get();
+    return emailResult.docs.isNotEmpty;
+  }
+
   Future<void> _prosesDaftar() async {
     String email = _emailController.text.trim();
+    String emailLower = normalizeEmail(email);
     String nama = _namaController.text.trim();
     String phone = _phoneController.text.trim();
     String password = _passwordController.text.trim();
@@ -39,6 +56,18 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
+      final emailSudahAda = await _emailSudahTerdaftar(email);
+      if (emailSudahAda) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Email ini sudah terdaftar sebelumnya.'),
+            ),
+          );
+        }
+        return;
+      }
+
       // 2. Buat akun dengan Firebase Auth
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
@@ -49,9 +78,12 @@ class _RegisterPageState extends State<RegisterPage> {
           .doc(userCredential.user!.uid)
           .set({
         'email': email,
+        'emailLower': emailLower,
         'namaLengkap': nama,
+        'noHp': phone,
         'nomorHandphone': phone,
         'role': 'pendonor',
+        'status': 'Pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -70,10 +102,12 @@ class _RegisterPageState extends State<RegisterPage> {
       } else if (e.code == 'invalid-email') {
         pesanError = 'Format email tidak valid.';
       }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(pesanError)),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Terjadi kesalahan sistem: $e')),
       );

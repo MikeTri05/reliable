@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import 'beranda_penyelenggara_page.dart';
 import 'data_acara_penyelenggara_page.dart';
@@ -67,16 +68,15 @@ class _DataPenggunaPenyelenggaraPageState
                       int totalPengguna = docs.length;
                       int aktif = 0;
                       int pending = 0;
-                      int nonaktif = 0;
 
                       for (var doc in docs) {
                         var data = doc.data() as Map<String, dynamic>;
                         var status = data['status'] ?? '';
-                        if (status == 'Terverifikasi')
+                        if (status == 'Terverifikasi') {
                           aktif++;
-                        else if (status == 'Pending')
+                        } else {
                           pending++;
-                        else if (status == 'Nonaktif') nonaktif++;
+                        }
                       }
 
                       // 2. MENGURUTKAN NAMA SESUAI ABJAD
@@ -94,7 +94,7 @@ class _DataPenggunaPenyelenggaraPageState
                         children: [
                           // Kirim hasil hitungan ke Panel Atas
                           _buildTopPanel(
-                              context, totalPengguna, aktif, pending, nonaktif),
+                              context, totalPengguna, aktif, pending),
                           const SizedBox(height: 18),
 
                           // Tampilkan daftar pengguna
@@ -198,7 +198,7 @@ class _DataPenggunaPenyelenggaraPageState
 
   // Parameter baru ditambahkan agar panel bisa menerima data statistik yang dinamis
   Widget _buildTopPanel(
-      BuildContext context, int total, int aktif, int pending, int nonaktif) {
+      BuildContext context, int total, int aktif, int pending) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
@@ -229,12 +229,6 @@ class _DataPenggunaPenyelenggaraPageState
                 text: '$pending Pending', // Dinamis
                 background: AppColors.pendingOrangeSoft,
                 foreground: AppColors.pendingOrange,
-              ),
-              _buildStatBadge(
-                icon: Icons.remove_circle,
-                text: '$nonaktif Nonaktif', // Dinamis
-                background: AppColors.inactivePinkSoft,
-                foreground: AppColors.inactivePink,
               ),
             ],
           ),
@@ -310,7 +304,9 @@ class _DataPenggunaPenyelenggaraPageState
   // Mengubah parameter menjadi data dari Firebase
   Widget _buildUserCard(
       BuildContext context, Map<String, dynamic> data, String docId) {
-    final status = data['status'] ?? 'Pending'; // Default pending jika kosong
+    final status = data['status'] == 'Terverifikasi'
+        ? 'Terverifikasi'
+        : 'Pending'; // Default pending jika kosong
 
     return InkWell(
       onTap: () {
@@ -457,11 +453,6 @@ class _DataPenggunaPenyelenggaraPageState
         foreground = AppColors.pendingOrange;
         icon = Icons.person_outline;
         break;
-      case 'Nonaktif':
-        background = AppColors.inactivePinkSoft;
-        foreground = AppColors.inactivePink;
-        icon = Icons.remove_circle;
-        break;
       default:
         background = AppColors.secondary;
         foreground = AppColors.primary;
@@ -529,10 +520,14 @@ class _DataPenggunaPenyelenggaraPageState
               ),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.pushAndRemoveUntil(
-                  context,
+              onPressed: () async {
+                final dialogNavigator = Navigator.of(dialogContext);
+                final rootNavigator = Navigator.of(context);
+                await AdminSession.clear();
+                if (!context.mounted || !dialogContext.mounted) return;
+
+                dialogNavigator.pop();
+                rootNavigator.pushAndRemoveUntil(
                   MaterialPageRoute(
                     builder: (_) => const LoginPenyelenggaraPage(),
                   ),
@@ -556,7 +551,7 @@ class _DataPenggunaPenyelenggaraPageState
     if (index == 3) return;
 
     if (index == 0) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const BerandaPenyelenggaraPage(),
@@ -566,7 +561,7 @@ class _DataPenggunaPenyelenggaraPageState
     }
 
     if (index == 1) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const DataAcaraPenyelenggaraPage(),
@@ -576,7 +571,7 @@ class _DataPenggunaPenyelenggaraPageState
     }
 
     if (index == 2) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const DataDonorPenyelenggaraPage(),

@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import 'beranda_page.dart';
 import '../admin/login_penyelenggara_page.dart';
@@ -44,18 +45,21 @@ class _LoginPageState extends State<LoginPage> {
         email: email,
         password: password,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Berhasil masuk!')),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const BerandaPage(),
-          ),
-        );
-      }
+      await AdminSession.clear();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Berhasil masuk!')),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const BerandaPage(),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
       String pesanError = 'Terjadi kesalahan saat masuk.';
       if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
         pesanError = 'Email atau kata sandi salah. Silakan periksa kembali.';
@@ -68,6 +72,8 @@ class _LoginPageState extends State<LoginPage> {
         SnackBar(content: Text(pesanError)),
       );
     } catch (e) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Terjadi kesalahan sistem: $e')),
       );

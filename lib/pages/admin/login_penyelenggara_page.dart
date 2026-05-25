@@ -1,8 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../user/login_page.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import 'beranda_penyelenggara_page.dart';
 
@@ -44,6 +46,8 @@ class _LoginPenyelenggaraPageState extends State<LoginPenyelenggaraPage> {
           .get();
 
       if (snapshot.docs.isNotEmpty) {
+        await FirebaseAuth.instance.signOut();
+        await AdminSession.save(adminDocumentId: snapshot.docs.first.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

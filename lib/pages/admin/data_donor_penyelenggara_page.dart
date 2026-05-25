@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/event_utils.dart';
 import 'beranda_penyelenggara_page.dart';
 import 'data_acara_penyelenggara_page.dart';
 import 'data_pengguna_penyelenggara_page.dart';
@@ -18,11 +20,25 @@ class DataDonorPenyelenggaraPage extends StatefulWidget {
 
 class _DataDonorPenyelenggaraPageState
     extends State<DataDonorPenyelenggaraPage> {
-  String selectedKategori = 'Baru';
+  DateTime? selectedDate;
+  TimeOfDay? selectedTime;
 
   // 👇 INI YANG TADI HILANG (Wajib ada di sini!) 👇
   String searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+
+  String get _filterTitle {
+    if (selectedDate == null && selectedTime == null) {
+      return 'Semua Acara Donor';
+    }
+
+    final dateLabel =
+        selectedDate == null ? 'Semua tanggal' : formatEventDate(selectedDate!);
+    final timeLabel = selectedTime == null
+        ? ''
+        : ' ${formatEventTime(selectedTime!.hour, selectedTime!.minute)} WIB';
+    return 'Filter: $dateLabel$timeLabel';
+  }
 
   @override
   void dispose() {
@@ -58,9 +74,7 @@ class _DataDonorPenyelenggaraPageState
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    selectedKategori == 'Baru'
-                        ? 'Acara Baru'
-                        : 'Acara Terdahulu',
+                    _filterTitle,
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -72,8 +86,7 @@ class _DataDonorPenyelenggaraPageState
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('acara')
-                        .orderBy('tanggalDibuat',
-                            descending: selectedKategori == 'Baru')
+                        .orderBy('tanggalDibuat', descending: true)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -93,7 +106,18 @@ class _DataDonorPenyelenggaraPageState
                       var docs = snapshot.data!.docs.where((doc) {
                         var data = doc.data() as Map<String, dynamic>? ?? {};
                         String title = (data['judul'] ?? '').toLowerCase();
-                        return title.contains(searchQuery);
+                        final dateMatches = selectedDate == null ||
+                            data['tanggalPelaksanaan'] ==
+                                formatEventDate(selectedDate!);
+                        final timeMatches = selectedTime == null ||
+                            data['jamPelaksanaan'] ==
+                                formatEventTime(
+                                  selectedTime!.hour,
+                                  selectedTime!.minute,
+                                );
+                        return title.contains(searchQuery) &&
+                            dateMatches &&
+                            timeMatches;
                       }).toList();
                       // 👆 (Kurung nyasar sudah saya hapus di sini) 👆
 
@@ -114,9 +138,8 @@ class _DataDonorPenyelenggaraPageState
                           var data =
                               docs[index].data() as Map<String, dynamic>? ?? {};
                           String eventId = docs[index].id;
-                          String title = data['judul'] ?? 'Tanpa Judul';
                           String published =
-                              'Pelaksanaan : ${data['tanggalPelaksanaan'] ?? '-'}';
+                              'Pelaksanaan : ${data['tanggalPelaksanaan'] ?? '-'}, ${data['jamPelaksanaan'] ?? '-'} WIB';
 
                           return Padding(
                             padding: EdgeInsets.only(
@@ -124,7 +147,7 @@ class _DataDonorPenyelenggaraPageState
                             ),
                             child: _buildCard(
                               context,
-                              title,
+                              data,
                               published,
                               eventId,
                             ),
@@ -207,37 +230,129 @@ class _DataDonorPenyelenggaraPageState
   Widget _buildFilterRow() {
     return Row(
       children: [
-        PopupMenuButton<String>(
-          onSelected: (value) {
-            setState(() {
-              selectedKategori = value;
-            });
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: 'Baru', child: Text('Baru')),
-            PopupMenuItem(value: 'Terdahulu', child: Text('Terdahulu')),
-          ],
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.borderLight),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(selectedKategori),
-                const Icon(Icons.keyboard_arrow_down),
-              ],
-            ),
+        Expanded(
+          child: _buildFilterButton(
+            icon: Icons.calendar_today_outlined,
+            label: selectedDate == null
+                ? 'Pilih Tanggal'
+                : formatEventDate(selectedDate!),
+            onTap: () => _pickFilterDate(context),
           ),
         ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildFilterButton(
+            icon: Icons.access_time_rounded,
+            label: selectedTime == null
+                ? 'Pilih Jam'
+                : '${formatEventTime(selectedTime!.hour, selectedTime!.minute)} WIB',
+            onTap: () => _pickFilterTime(context),
+          ),
+        ),
+        if (selectedDate != null || selectedTime != null) ...[
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () {
+              setState(() {
+                selectedDate = null;
+                selectedTime = null;
+              });
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.borderLight),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 18,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildCard(
-      BuildContext context, String title, String published, String eventId) {
+  Widget _buildFilterButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: AppColors.textDark),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickFilterDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: AppColors.primary),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked == null) return;
+    setState(() => selectedDate = picked);
+  }
+
+  Future<void> _pickFilterTime(BuildContext context) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: selectedTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: AppColors.primary),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked == null) return;
+    setState(() => selectedTime = picked);
+  }
+
+  Widget _buildCard(BuildContext context, Map<String, dynamic> data,
+      String published, String eventId) {
+    final title = data['judul'] ?? 'Tanpa Judul';
+
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -263,16 +378,7 @@ class _DataDonorPenyelenggaraPageState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textDark,
-                    ),
-                  ),
+                  _buildTitleWithBagCount(title, eventId),
                   const SizedBox(height: 6),
                   Text(
                     published,
@@ -294,10 +400,38 @@ class _DataDonorPenyelenggaraPageState
     );
   }
 
+  Widget _buildTitleWithBagCount(String title, String eventId) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('acara')
+          .doc(eventId)
+          .collection('peserta')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        final totalKantong = docs.fold<int>(0, (total, doc) {
+          final data = doc.data() as Map<String, dynamic>? ?? {};
+          return total + parseBagCount(data['jumlahKantong']);
+        });
+
+        return Text(
+          '$title (${formatBagCount(totalKantong)})',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textDark,
+          ),
+        );
+      },
+    );
+  }
+
   void _onBottomTap(BuildContext context, int index) {
     if (index == 2) return;
     if (index == 0) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const BerandaPenyelenggaraPage(),
@@ -306,7 +440,7 @@ class _DataDonorPenyelenggaraPageState
       return;
     }
     if (index == 1) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const DataAcaraPenyelenggaraPage(),
@@ -315,7 +449,7 @@ class _DataDonorPenyelenggaraPageState
       return;
     }
     if (index == 3) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => const DataPenggunaPenyelenggaraPage(),
@@ -342,10 +476,14 @@ class _DataDonorPenyelenggaraPageState
               child: const Text('Batal'),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.pushAndRemoveUntil(
-                  context,
+              onPressed: () async {
+                final dialogNavigator = Navigator.of(dialogContext);
+                final rootNavigator = Navigator.of(context);
+                await AdminSession.clear();
+                if (!context.mounted || !dialogContext.mounted) return;
+
+                dialogNavigator.pop();
+                rootNavigator.pushAndRemoveUntil(
                   MaterialPageRoute(
                     builder: (_) => const LoginPenyelenggaraPage(),
                   ),

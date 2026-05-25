@@ -1,8 +1,12 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'core/session/admin_session.dart';
 import 'core/theme/app_colors.dart';
+import 'pages/admin/beranda_penyelenggara_page.dart';
 import 'pages/user/login_page.dart';
+import 'pages/user/beranda_page.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -31,7 +35,54 @@ class MyApp extends StatelessWidget {
           surface: AppColors.background,
         ),
       ),
-      home: const LoginPage(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, authSnapshot) {
+        if (authSnapshot.connectionState == ConnectionState.waiting) {
+          return const _SplashPage();
+        }
+
+        if (authSnapshot.data != null) {
+          return const BerandaPage();
+        }
+
+        return FutureBuilder<bool>(
+          future: AdminSession.isLoggedIn(),
+          builder: (context, adminSnapshot) {
+            if (adminSnapshot.connectionState != ConnectionState.done) {
+              return const _SplashPage();
+            }
+
+            if (adminSnapshot.data == true) {
+              return const BerandaPenyelenggaraPage();
+            }
+
+            return const LoginPage();
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SplashPage extends StatelessWidget {
+  const _SplashPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(child: CircularProgressIndicator()),
     );
   }
 }
