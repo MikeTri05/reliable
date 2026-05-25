@@ -1,0 +1,55 @@
+import 'package:flutter/material.dart';
+import '../core/constants/app_assets.dart';
+import '../core/theme/app_colors.dart';
+
+class AppLogoHeader extends StatelessWidget {
+  final double logoSize;
+
+  const AppLogoHeader({
+    super.key,
+    this.logoSize = 90, // default sedikit diperkecil biar mirip UI
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Image.asset(
+          AppAssets.logo,
+          width: logoSize,
+          height: logoSize,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(width: 12),
+
+        /// ❗ INI YANG DI FIX
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Text(
+                'Reliable Emergency',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.lightPink,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                'Donor',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
