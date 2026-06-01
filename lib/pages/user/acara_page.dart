@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/event_utils.dart';
 import 'beranda_page.dart';
 import 'detail_acara_page.dart';
 import 'kartu_page.dart';
@@ -10,8 +11,22 @@ import 'login_page.dart';
 import 'pengguna_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class AcaraPage extends StatelessWidget {
+class AcaraPage extends StatefulWidget {
   const AcaraPage({super.key});
+
+  @override
+  State<AcaraPage> createState() => _AcaraPageState();
+}
+
+class _AcaraPageState extends State<AcaraPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +74,39 @@ class AcaraPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    SizedBox(
+                      height: 40,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value.toLowerCase()),
+                        style: const TextStyle(
+                            fontSize: 11.5, color: AppColors.textDark),
+                        decoration: InputDecoration(
+                          hintText: 'Cari acara donor...',
+                          hintStyle: const TextStyle(
+                              fontSize: 11.5, color: AppColors.textGrey),
+                          prefixIcon: const Icon(Icons.search,
+                              size: 18, color: AppColors.textGrey),
+                          isDense: true,
+                          filled: true,
+                          fillColor: AppColors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(9),
+                            borderSide: const BorderSide(
+                                color: AppColors.fieldBorder, width: 0.9),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(9),
+                            borderSide: const BorderSide(
+                                color: AppColors.primary, width: 1),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('acara')
@@ -88,32 +136,54 @@ class AcaraPage extends StatelessWidget {
                           );
                         }
 
-                        final docs = snapshot.data!.docs;
+                        final docs = snapshot.data!.docs.where((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          final title =
+                              (data['namaAcara'] ?? data['judul'] ?? '')
+                                  .toString()
+                                  .toLowerCase();
+                          return title.contains(_searchQuery);
+                        }).toList();
+
+                        if (docs.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 30),
+                            child: Center(
+                              child: Text(
+                                'Acara tidak ditemukan.',
+                                style: TextStyle(
+                                    fontSize: 12, color: AppColors.textGrey),
+                              ),
+                            ),
+                          );
+                        }
 
                         return Column(
                           children: docs.map((doc) {
                             final data = doc.data() as Map<String, dynamic>;
                             final String eventId = doc.id;
 
-                            // Ekstrak data (Sesuaikan key-nya dengan yang ada di Firestore Admin-mu)
                             final String title = data['namaAcara'] ??
                                 data['judul'] ??
                                 'Acara Tanpa Judul';
                             final String date = data['tanggalPelaksanaan'] ??
                                 data['tanggal'] ??
                                 '-';
-                            final String imageUrl =
-                                data['gambarUrl'] ?? data['image_url'] ?? '';
+                            final String imageUrl = data['imageUrl'] ??
+                                data['gambarUrl'] ??
+                                data['image_url'] ??
+                                '';
 
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: _AcaraCard(
                                 title: title,
                                 date: date,
-                                imageUrl: imageUrl, // Kirim link gambar
+                                imageUrl: imageUrl,
                                 isHighlighted: true,
-                                onTap: () => _openDetail(context, eventId,
-                                    data), // Kirim data lengkap ke detail
+                                completed: isEventCompleted(data),
+                                onTap: () =>
+                                    _openDetail(context, eventId, data),
                               ),
                             );
                           }).toList(),
@@ -271,6 +341,7 @@ class _AcaraCard extends StatelessWidget {
   final String date;
   final String imageUrl; // Tambahan untuk gambar
   final bool isHighlighted;
+  final bool completed;
   final VoidCallback onTap;
 
   const _AcaraCard({
@@ -279,6 +350,7 @@ class _AcaraCard extends StatelessWidget {
     required this.onTap,
     this.imageUrl = '',
     this.isHighlighted = false,
+    this.completed = false,
   });
 
   @override
@@ -338,16 +410,38 @@ class _AcaraCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10.2,
-                            fontWeight: FontWeight.w500,
-                            height: 1.28,
-                            color: AppColors.textDark,
-                          ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10.2,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.28,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                            ),
+                            if (completed)
+                              Container(
+                                margin: const EdgeInsets.only(left: 6),
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: AppColors.successGreenSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.check_rounded,
+                                  size: 16,
+                                  color: AppColors.successGreen,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       Align(

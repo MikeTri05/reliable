@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/event_utils.dart';
 import 'acara_page.dart';
 import 'detail_acara_page.dart';
 import 'kartu_page.dart';
@@ -25,10 +26,15 @@ class _BerandaPageState extends State<BerandaPage> {
   Timer? _timer;
   int _currentPage = 0;
   int _bannerCount = 0;
+  late final Stream<QuerySnapshot> _acaraStream;
 
   @override
   void initState() {
     super.initState();
+    _acaraStream = FirebaseFirestore.instance
+        .collection('acara')
+        .orderBy('tanggalDibuat', descending: true)
+        .snapshots();
     _setupPushNotifications();
     _startAutoSlide(); // Jalankan mesin penggeser otomatis
   }
@@ -103,10 +109,7 @@ class _BerandaPageState extends State<BerandaPage> {
       ),
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('acara')
-              .orderBy('tanggalDibuat', descending: true)
-              .snapshots(),
+          stream: _acaraStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -218,12 +221,12 @@ class _BerandaPageState extends State<BerandaPage> {
 
                         // --- BANNER SLIDER OTOMATIS ---
                         SizedBox(
-                          height: 165,
-                          child: PageView.builder(
-                            controller: _pageController,
-                            onPageChanged: (index) {
-                              setState(() => _currentPage = index);
-                            },
+                         height: 165,
+                         child: PageView.builder(
+                           controller: _pageController,
+                           onPageChanged: (index) {
+                             setState(() => _currentPage = index);
+                           },
                             itemCount: bannerDocs.length,
                             itemBuilder: (context, index) {
                               final data = bannerDocs[index].data()
@@ -399,13 +402,16 @@ class _BannerSlide extends StatelessWidget {
     final title =
         eventData['namaAcara'] ?? eventData['judul'] ?? 'Acara Donor Darah';
     final date = eventData['tanggalPelaksanaan'] ?? eventData['tanggal'] ?? '-';
-    final imageUrl = eventData['gambarUrl'] ?? eventData['image_url'] ?? '';
+    final imageUrl = eventData['imageUrl'] ??
+        eventData['gambarUrl'] ??
+        eventData['image_url'] ??
+        '';
+    final completed = isEventCompleted(eventData);
 
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
       child: Container(
-        width: double.infinity,
+       width: double.infinity,
         decoration: BoxDecoration(
           color: AppColors.primary,
           borderRadius: BorderRadius.circular(16),
@@ -422,14 +428,40 @@ class _BannerSlide extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                  color: AppColors.lightPink,
-                  borderRadius: BorderRadius.circular(16)),
-              child: const Icon(Icons.water_drop_rounded,
-                  color: AppColors.white, size: 26),
+            Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                      color: AppColors.lightPink,
+                      borderRadius: BorderRadius.circular(16)),
+                  child: const Icon(Icons.water_drop_rounded,
+                      color: AppColors.white, size: 26),
+                ),
+                const Spacer(),
+                if (completed)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(30)),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded,
+                            size: 13, color: AppColors.successGreen),
+                        SizedBox(width: 4),
+                        Text('Selesai',
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.successGreen)),
+                      ],
+                    ),
+                  ),
+              ],
             ),
             const Spacer(),
             Row(
@@ -505,7 +537,11 @@ class _HistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = eventData['namaAcara'] ?? eventData['judul'] ?? 'Acara Donor';
     final date = eventData['tanggalPelaksanaan'] ?? eventData['tanggal'] ?? '-';
-    final imageUrl = eventData['gambarUrl'] ?? eventData['image_url'] ?? '';
+    final imageUrl = eventData['imageUrl'] ??
+        eventData['gambarUrl'] ??
+        eventData['image_url'] ??
+        '';
+    final completed = isEventCompleted(eventData);
 
     return Material(
       color: AppColors.white,
@@ -543,14 +579,36 @@ class _HistoryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(title,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
-                                height: 1.3,
-                                color: AppColors.textDark)),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(title,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.3,
+                                      color: AppColors.textDark)),
+                            ),
+                            if (completed)
+                              Container(
+                                margin: const EdgeInsets.only(left: 6),
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: AppColors.successGreenSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.check_rounded,
+                                  size: 16,
+                                  color: AppColors.successGreen,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                       Align(
                           alignment: Alignment.bottomRight,

@@ -7,7 +7,7 @@ class AppLogoHeader extends StatelessWidget {
 
   const AppLogoHeader({
     super.key,
-    this.logoSize = 90, // default sedikit diperkecil biar mirip UI
+    this.logoSize = 110,
   });
 
   @override
@@ -32,7 +32,7 @@ class AppLogoHeader extends StatelessWidget {
               Text(
                 'Reliable Emergency',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: AppColors.lightPink,
                 ),
@@ -41,7 +41,7 @@ class AppLogoHeader extends StatelessWidget {
               Text(
                 'Donor',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 20,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,
                 ),

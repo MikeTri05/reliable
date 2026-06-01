@@ -160,7 +160,7 @@ class _KeamananPageState extends State<KeamananPage> {
               ],
 
               const SizedBox(height: 24),
-              _buildSaveButton(),
+              if (isEditing) _buildSaveButton(),
             ],
           ),
         ),
@@ -182,7 +182,7 @@ class _KeamananPageState extends State<KeamananPage> {
         ),
         const Expanded(
           child: Center(
-            child: Text('Keamanan',
+            child: Text('Ganti Kata Sandi',
                 style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w500,

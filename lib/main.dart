@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'core/session/admin_session.dart';
 import 'core/theme/app_colors.dart';
+import 'core/utils/local_notification_service.dart';
 import 'pages/admin/beranda_penyelenggara_page.dart';
 import 'pages/user/login_page.dart';
 import 'pages/user/beranda_page.dart';
@@ -17,6 +18,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await LocalNotificationService.init();
   runApp(const MyApp());
 }
 
@@ -35,6 +37,17 @@ class MyApp extends StatelessWidget {
           surface: AppColors.background,
         ),
       ),
+      builder: (context, child) {
+        final mq = MediaQuery.of(context);
+        // Naikkan skala teks agar elemen tidak terlihat terlalu kecil,
+        // tetapi tetap dikunci pada rentang aman supaya layout tidak overflow.
+        final base = mq.textScaler.scale(1.0);
+        final scaled = (base * 1.18).clamp(1.05, 1.35);
+        return MediaQuery(
+          data: mq.copyWith(textScaler: TextScaler.linear(scaled)),
+          child: child!,
+        );
+      },
       home: const AuthGate(),
     );
   }

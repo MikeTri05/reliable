@@ -21,6 +21,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<bool> _emailSudahTerdaftar(String email) async {
     final emailLower = normalizeEmail(email);
@@ -136,10 +137,11 @@ class _RegisterPageState extends State<RegisterPage> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: Container(
-              width: 360,
-              padding: const EdgeInsets.fromLTRB(24, 26, 24, 28),
+              constraints: const BoxConstraints(maxWidth: 480),
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(22),
@@ -167,7 +169,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   _buildTextField(
                       hint: 'Kata Sandi',
                       controller: _passwordController,
-                      obscureText: true),
+                      obscureText: _obscurePassword,
+                      isPassword: true),
                   _buildRegisterButton(context),
                   const SizedBox(height: 14),
                   _buildBackText(context),
@@ -187,10 +190,10 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget _buildTitle() {
     return const Text(
       'Daftar Akun',
-      style: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textDark,
+     style: TextStyle(
+        fontSize: 22,
+       fontWeight: FontWeight.w700,
+       color: AppColors.textDark,
       ),
     );
   }
@@ -201,8 +204,8 @@ class _RegisterPageState extends State<RegisterPage> {
       children: [
         Container(
           width: 2.5,
-          height: 50,
-          margin: const EdgeInsets.only(top: 2),
+          height: 56,
+         margin: const EdgeInsets.only(top: 2),
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(2),
@@ -211,11 +214,11 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(width: 10),
         const Expanded(
           child: Text.rich(
-            TextSpan(
-              style: TextStyle(
-                fontSize: 11,
-                height: 1.35,
-                color: AppColors.textGrey,
+           TextSpan(
+             style: TextStyle(
+                fontSize: 13,
+               height: 1.35,
+               color: AppColors.textGrey,
               ),
               children: [
                 TextSpan(
@@ -241,26 +244,41 @@ class _RegisterPageState extends State<RegisterPage> {
     required String hint,
     required TextEditingController controller,
     bool obscureText = false,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return SizedBox(
-      height: 42,
-      child: TextField(
-        controller: controller,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
-        style: const TextStyle(
-          fontSize: 11.5,
-          color: AppColors.textDark,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textGrey,
+   bool isPassword = false,
+   TextInputType keyboardType = TextInputType.text,
+ }) {
+   return SizedBox(
+      height: 52,
+     child: TextField(
+       controller: controller,
+       obscureText: obscureText,
+       keyboardType: keyboardType,
+       style: const TextStyle(
+          fontSize: 14,
+         color: AppColors.textDark,
+       ),
+       decoration: InputDecoration(
+         hintText: hint,
+         hintStyle: const TextStyle(
+            fontSize: 13,
+           color: AppColors.textGrey,
           ),
           filled: true,
           fillColor: AppColors.white,
+          suffixIcon: isPassword
+              ? IconButton(
+                  splashRadius: 18,
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 18,
+                    color: AppColors.textGrey,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                )
+              : null,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 12,
@@ -285,11 +303,11 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildRegisterButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 42,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _prosesDaftar,
+   return SizedBox(
+     width: double.infinity,
+      height: 52,
+     child: ElevatedButton(
+       onPressed: _isLoading ? null : _prosesDaftar,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
@@ -309,9 +327,9 @@ class _RegisterPageState extends State<RegisterPage> {
               )
             : const Text(
                 'Daftar',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+               style: TextStyle(
+                  fontSize: 15,
+                 fontWeight: FontWeight.w600,
                 ),
               ),
       ),
@@ -326,10 +344,10 @@ class _RegisterPageState extends State<RegisterPage> {
           padding: EdgeInsets.symmetric(vertical: 4),
           child: Text(
             'Kembali',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primary,
+           style: TextStyle(
+              fontSize: 14,
+             fontWeight: FontWeight.w500,
+             color: AppColors.primary,
             ),
           ),
         ),

@@ -11,8 +11,24 @@ import 'detail_acara_penyelenggara_page.dart';
 import 'login_penyelenggara_page.dart';
 import 'tambah_acara_page.dart';
 
-class DataAcaraPenyelenggaraPage extends StatelessWidget {
+class DataAcaraPenyelenggaraPage extends StatefulWidget {
   const DataAcaraPenyelenggaraPage({super.key});
+
+  @override
+  State<DataAcaraPenyelenggaraPage> createState() =>
+      _DataAcaraPenyelenggaraPageState();
+}
+
+class _DataAcaraPenyelenggaraPageState
+    extends State<DataAcaraPenyelenggaraPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +54,40 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
                 _buildHeader(context),
                 const SizedBox(height: 14),
                 _buildAddEventButton(context),
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) =>
+                        setState(() => _searchQuery = value.toLowerCase()),
+                    style: const TextStyle(
+                        fontSize: 11.5, color: AppColors.textDark),
+                    decoration: InputDecoration(
+                      hintText: 'Cari acara...',
+                      hintStyle: const TextStyle(
+                          fontSize: 11.5, color: AppColors.textGrey),
+                      prefixIcon: const Icon(Icons.search,
+                          size: 18, color: AppColors.textGrey),
+                      isDense: true,
+                      filled: true,
+                      fillColor: AppColors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(9),
+                        borderSide: const BorderSide(
+                            color: AppColors.fieldBorder, width: 0.9),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(9),
+                        borderSide: const BorderSide(
+                            color: AppColors.primary, width: 1),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Expanded(
                   // Menggunakan StreamBuilder untuk menarik data langsung
                   child: StreamBuilder<QuerySnapshot>(
@@ -62,13 +111,29 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
                         );
                       }
 
+                      final filtered = snapshot.data!.docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final title =
+                            (data['judul'] ?? '').toString().toLowerCase();
+                        return title.contains(_searchQuery);
+                      }).toList();
+
+                      if (filtered.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Acara tidak ditemukan.',
+                            style: TextStyle(
+                                color: AppColors.textGrey, fontSize: 13),
+                          ),
+                        );
+                      }
+
                       return ListView(
                         physics: const BouncingScrollPhysics(),
                         children: [
                           _buildSectionTitle('Semua Acara', showAccent: true),
                           const SizedBox(height: 10),
-                          // Looping data dari Firestore menjadi widget EventCard
-                          ...snapshot.data!.docs.map((doc) {
+                          ...filtered.map((doc) {
                             Map<String, dynamic> data =
                                 doc.data() as Map<String, dynamic>;
                             return Padding(
@@ -79,7 +144,7 @@ class DataAcaraPenyelenggaraPage extends StatelessWidget {
                                 published:
                                     'Pelaksanaan : ${data['tanggalPelaksanaan'] ?? ''}',
                                 eventData: data,
-                                eventId: doc.id, // ID dokumen untuk detail/edit
+                                eventId: doc.id,
                               ),
                             );
                           }).toList(),

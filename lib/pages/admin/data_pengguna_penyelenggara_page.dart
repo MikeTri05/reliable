@@ -21,6 +21,15 @@ class DataPenggunaPenyelenggaraPage extends StatefulWidget {
 
 class _DataPenggunaPenyelenggaraPageState
     extends State<DataPenggunaPenyelenggaraPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -42,7 +51,40 @@ class _DataPenggunaPenyelenggaraPageState
             child: Column(
               children: [
                 _buildHeader(context),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) =>
+                        setState(() => _searchQuery = value.toLowerCase()),
+                    style: const TextStyle(
+                        fontSize: 11.5, color: AppColors.textDark),
+                    decoration: InputDecoration(
+                      hintText: 'Cari pengguna...',
+                      hintStyle: const TextStyle(
+                          fontSize: 11.5, color: AppColors.textGrey),
+                      prefixIcon: const Icon(Icons.search,
+                          size: 18, color: AppColors.textGrey),
+                      isDense: true,
+                      filled: true,
+                      fillColor: AppColors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(9),
+                        borderSide: const BorderSide(
+                            color: AppColors.fieldBorder, width: 0.9),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(9),
+                        borderSide: const BorderSide(
+                            color: AppColors.primary, width: 1),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
 
                 // MENGGUNAKAN STREAMBUILDER DI LEVEL ATAS UNTUK MENGHITUNG STATISTIK
                 Expanded(
@@ -90,6 +132,18 @@ class _DataPenggunaPenyelenggaraPageState
                         return namaA.compareTo(namaB);
                       });
 
+                      // 3. SARING SESUAI PENCARIAN (nama atau email)
+                      final filteredDocs = docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final nama = (data['namaLengkap'] ?? '')
+                            .toString()
+                            .toLowerCase();
+                        final email =
+                            (data['email'] ?? '').toString().toLowerCase();
+                        return nama.contains(_searchQuery) ||
+                            email.contains(_searchQuery);
+                      }).toList();
+
                       return Column(
                         children: [
                           // Kirim hasil hitungan ke Panel Atas
@@ -99,10 +153,10 @@ class _DataPenggunaPenyelenggaraPageState
 
                           // Tampilkan daftar pengguna
                           Expanded(
-                            child: docs.isEmpty
+                            child: filteredDocs.isEmpty
                                 ? const Center(
                                     child: Text(
-                                      'Belum ada pengguna.',
+                                      'Pengguna tidak ditemukan.',
                                       style: TextStyle(
                                           color: AppColors.textGrey,
                                           fontSize: 12),
@@ -110,11 +164,11 @@ class _DataPenggunaPenyelenggaraPageState
                                   )
                                 : ListView.builder(
                                     physics: const BouncingScrollPhysics(),
-                                    itemCount: docs.length,
+                                    itemCount: filteredDocs.length,
                                     itemBuilder: (context, index) {
-                                      var data = docs[index].data()
+                                      var data = filteredDocs[index].data()
                                           as Map<String, dynamic>;
-                                      String docId = docs[index].id;
+                                      String docId = filteredDocs[index].id;
 
                                       return Padding(
                                         padding: EdgeInsets.only(
@@ -231,36 +285,6 @@ class _DataPenggunaPenyelenggaraPageState
                 foreground: AppColors.pendingOrange,
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TambahPenggunaPage(),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text(
-                'Tambah Pengguna',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
           ),
         ],
       ),

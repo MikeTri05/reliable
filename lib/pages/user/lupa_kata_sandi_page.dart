@@ -78,10 +78,11 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: Container(
-              width: 360,
-              padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
+              constraints: const BoxConstraints(maxWidth: 480),
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(22),
@@ -116,10 +117,10 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
   Widget _buildTitle() {
     return const Text(
       'Lupa Kata Sandi',
-      style: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textDark,
+     style: TextStyle(
+        fontSize: 22,
+       fontWeight: FontWeight.w700,
+       color: AppColors.textDark,
       ),
     );
   }
@@ -130,8 +131,8 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
       children: [
         Container(
           width: 2.5,
-          height: 54,
-          margin: const EdgeInsets.only(top: 2),
+          height: 60,
+         margin: const EdgeInsets.only(top: 2),
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(2),
@@ -141,10 +142,10 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
         const Expanded(
           child: Text(
             'Masukkan email yang terdaftar. Kami akan mengirimkan tautan (link) untuk mengatur ulang kata sandi Anda.',
-            style: TextStyle(
-              fontSize: 11,
-              height: 1.35,
-              color: AppColors.textGrey,
+           style: TextStyle(
+              fontSize: 13,
+             height: 1.35,
+             color: AppColors.textGrey,
             ),
           ),
         ),
@@ -153,20 +154,20 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
   }
 
   Widget _buildEmailField() {
-    return SizedBox(
-      height: 42,
-      child: TextField(
-        controller: _emailController,
-        keyboardType: TextInputType.emailAddress,
-        style: const TextStyle(
-          fontSize: 11.5,
-          color: AppColors.textDark,
-        ),
-        decoration: InputDecoration(
-          hintText: 'Masukkan Email',
-          hintStyle: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textGrey,
+   return SizedBox(
+      height: 52,
+     child: TextField(
+       controller: _emailController,
+       keyboardType: TextInputType.emailAddress,
+       style: const TextStyle(
+          fontSize: 14,
+         color: AppColors.textDark,
+       ),
+       decoration: InputDecoration(
+         hintText: 'Masukkan Email',
+         hintStyle: const TextStyle(
+            fontSize: 13,
+           color: AppColors.textGrey,
           ),
           filled: true,
           fillColor: AppColors.white,
@@ -194,11 +195,11 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
   }
 
   Widget _buildVerifyButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 42,
-      child: ElevatedButton(
-        onPressed: _isLoading ? null : _prosesResetPassword,
+   return SizedBox(
+     width: double.infinity,
+      height: 52,
+     child: ElevatedButton(
+       onPressed: _isLoading ? null : _prosesResetPassword,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
@@ -209,9 +210,9 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
         ),
         child: const Text(
           'Kirim Tautan Reset',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
+         style: TextStyle(
+            fontSize: 15,
+           fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -226,10 +227,10 @@ class _LupaKataSandiPageState extends State<LupaKataSandiPage> {
           padding: EdgeInsets.symmetric(vertical: 4),
           child: Text(
             'Kembali',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primary,
+           style: TextStyle(
+              fontSize: 14,
+             fontWeight: FontWeight.w500,
+             color: AppColors.primary,
             ),
           ),
         ),

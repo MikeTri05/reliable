@@ -17,10 +17,10 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _deskripsiController = TextEditingController();
   final TextEditingController _tempatController = TextEditingController();
-  
+
   DateTime selectedDate = DateTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
-  
+
   bool _isLoading = false;
 
   // 👇 Variabel baru untuk menampung gambar 👇
@@ -59,13 +59,7 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
       return;
     }
 
-    // Pastikan gambar diwajibkan (Opsional, hapus if ini kalau gambar boleh kosong)
-    if (_imageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Poster/Banner acara wajib ditambahkan!')),
-      );
-      return;
-    }
+    // Poster/banner acara bersifat opsional.
 
     setState(() {
       _isLoading = true;
@@ -79,12 +73,13 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
         // Buat nama file yang unik berdasarkan waktu
         String fileName = DateTime.now().millisecondsSinceEpoch.toString();
         // Arahkan ke folder 'poster_acara' di Storage
-        Reference ref = FirebaseStorage.instance.ref().child('poster_acara/$fileName.jpg');
-        
+        Reference ref =
+            FirebaseStorage.instance.ref().child('poster_acara/$fileName.jpg');
+
         // Mulai upload
         UploadTask uploadTask = ref.putFile(_imageFile!);
         TaskSnapshot snapshot = await uploadTask;
-        
+
         // Ambil URL link gambar yang sudah berhasil diupload
         imageUrl = await snapshot.ref.getDownloadURL();
       }
@@ -96,8 +91,9 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
         'tanggalPelaksanaan': _formatDate(selectedDate),
         'jamPelaksanaan': _formatTime(selectedTime),
         'tempat': tempat,
-        'imageUrl': imageUrl, // <-- Ini dia yang baru! Link gambar tersimpan di sini
-        'tanggalDibuat': FieldValue.serverTimestamp(), 
+        'imageUrl':
+            imageUrl, // <-- Ini dia yang baru! Link gambar tersimpan di sini
+        'tanggalDibuat': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
@@ -189,10 +185,12 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
                   const SizedBox(height: 6),
                   _buildPlaceField(),
                   const SizedBox(height: 18),
-                  
+
                   // 👇 Mengubah kotak foto agar bisa menampilkan pratinjau 👇
-                  _imageFile != null ? _buildPhotoPreview() : _buildPhotoPlaceholder(context),
-                  
+                  _imageFile != null
+                      ? _buildPhotoPreview()
+                      : _buildPhotoPlaceholder(context),
+
                   const SizedBox(height: 76),
                   _buildAddButton(context),
                 ],
@@ -524,19 +522,19 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-        child: _isLoading 
-        ? const SizedBox(
-            width: 20, 
-            height: 20, 
-            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-          )
-        : const Text(
-          'Tambah',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2))
+            : const Text(
+                'Tambah',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
       ),
     );
   }
@@ -596,7 +594,8 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (bottomSheetContext) { // Gunakan nama variabel lain agar tidak tertukar dengan context halaman
+      builder: (bottomSheetContext) {
+        // Gunakan nama variabel lain agar tidak tertukar dengan context halaman
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
@@ -621,7 +620,7 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
                   title: const Text('Pilih dari galeri'),
                   onTap: () {
                     Navigator.pop(bottomSheetContext); // Tutup bottom sheet
-                    _pickImage(ImageSource.gallery);   // Panggil galeri
+                    _pickImage(ImageSource.gallery); // Panggil galeri
                   },
                 ),
                 ListTile(
@@ -633,7 +632,7 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
                   title: const Text('Ambil dari kamera'),
                   onTap: () {
                     Navigator.pop(bottomSheetContext); // Tutup bottom sheet
-                    _pickImage(ImageSource.camera);    // Panggil kamera
+                    _pickImage(ImageSource.camera); // Panggil kamera
                   },
                 ),
               ],

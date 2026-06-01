@@ -97,12 +97,10 @@ class _DetailPenggunaPageState extends State<DetailPenggunaPage> {
       });
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const BerhasilPage(),
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Data berhasil disimpan!')),
         );
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {

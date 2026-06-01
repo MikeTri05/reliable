@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/fcm_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/event_utils.dart';
 import 'masukan_data_donor_page.dart';
 
 class DetailDataDonorPage extends StatefulWidget {
@@ -19,6 +20,15 @@ class DetailDataDonorPage extends StatefulWidget {
 }
 
 class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,9 +47,13 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(context),
-                const SizedBox(height: 28),
-                _buildTitle(),
                 const SizedBox(height: 18),
+                _buildTitle(),
+                const SizedBox(height: 8),
+                _buildBloodSummary(),
+                const SizedBox(height: 14),
+                _buildSearchField(),
+                const SizedBox(height: 12),
                 Expanded(
                   child: SingleChildScrollView(
                     child: _buildTable(),
@@ -94,6 +108,106 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
     );
   }
 
+  Widget _buildSearchField() {
+    return SizedBox(
+      height: 38,
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) =>
+            setState(() => _searchQuery = value.toLowerCase()),
+        style: const TextStyle(fontSize: 11.5, color: AppColors.textDark),
+        decoration: InputDecoration(
+          hintText: 'Cari no kartu atau nama...',
+          hintStyle: const TextStyle(fontSize: 11.5, color: AppColors.textGrey),
+          prefixIcon:
+              const Icon(Icons.search, size: 18, color: AppColors.textGrey),
+          isDense: true,
+          filled: true,
+          fillColor: AppColors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(9),
+            borderSide:
+                const BorderSide(color: AppColors.fieldBorder, width: 0.9),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(9),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBloodSummary() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('acara')
+          .doc(widget.eventId)
+          .collection('peserta')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        var total = 0;
+        final perGolongan = <String, int>{};
+
+        for (final doc in docs) {
+          final data = doc.data() as Map<String, dynamic>? ?? {};
+          final bags = parseBagCount(data['jumlahKantong']);
+          final goldar =
+              (data['golonganDarah'] ?? '-').toString().toUpperCase();
+          total += bags;
+          perGolongan[goldar] = (perGolongan[goldar] ?? 0) + bags;
+        }
+
+        final entries = perGolongan.entries
+            .where((e) => e.key != '-' && e.key.isNotEmpty)
+            .toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Total Kantong Darah: $total',
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+            if (entries.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: entries
+                    .map((e) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${e.key}: ${e.value}',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildTable() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -109,16 +223,35 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                   child: CircularProgressIndicator()));
         }
 
-        List<QueryDocumentSnapshot> docs =
+        List<QueryDocumentSnapshot> allDocs =
             snapshot.hasData ? snapshot.data!.docs : [];
+
+        final docs = allDocs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>? ?? {};
+          final nama = (data['nama'] ?? '').toString().toLowerCase();
+          final kartu = (data['kartu'] ?? '').toString().toLowerCase();
+          return nama.contains(_searchQuery) || kartu.contains(_searchQuery);
+        }).toList();
+
+        if (docs.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'Belum ada peserta yang cocok.',
+                style: TextStyle(fontSize: 11, color: AppColors.textGrey),
+              ),
+            ),
+          );
+        }
 
         return ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: Table(
             columnWidths: const {
               0: FixedColumnWidth(26),
-              1: FixedColumnWidth(96),
-              2: FlexColumnWidth(),
+              1: FlexColumnWidth(),
+              2: FixedColumnWidth(40),
               3: FixedColumnWidth(28),
             },
             border: const TableBorder(
@@ -136,8 +269,8 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                 decoration: const BoxDecoration(color: AppColors.primary),
                 children: [
                   _buildHeaderCell('No'),
-                  _buildHeaderCell('Nomor Kartu'),
-                  _buildHeaderCell('Nama Peserta'),
+                  _buildHeaderCell('Peserta'),
+                  _buildHeaderCell('Kantong'),
                   _buildHeaderCell('Aksi'),
                 ],
               ),
@@ -145,14 +278,19 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                 int index = entry.key;
                 String pesertaId = entry.value.id;
                 var data = entry.value.data() as Map<String, dynamic>? ?? {};
+                final bags = parseBagCount(data['jumlahKantong']);
+                final goldar = (data['golonganDarah'] ?? '-').toString();
 
                 return TableRow(
                   decoration: const BoxDecoration(color: AppColors.white),
                   children: [
                     _buildBodyCell('${index + 1}', centered: true),
-                    _buildBodyCell(data['kartu'] ?? '-',
-                        centered: true), // Menampilkan Golongan Darah/Kartu
-                    _buildBodyCell(data['nama'] ?? '-'),
+                    _buildPesertaCell(
+                      nama: data['nama'] ?? '-',
+                      kartu: data['kartu'] ?? '-',
+                      goldar: goldar,
+                    ),
+                    _buildBodyCell('$bags', centered: true),
                     _buildActionCell(pesertaId),
                   ],
                 );
@@ -187,6 +325,38 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
           textAlign: centered ? TextAlign.center : TextAlign.left,
           style: const TextStyle(
               fontSize: 9.4, color: AppColors.textDark, height: 1.15)),
+    );
+  }
+
+  Widget _buildPesertaCell({
+    required String nama,
+    required String kartu,
+    required String goldar,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 34),
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            nama,
+            style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark,
+                height: 1.2),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            goldar != '-' ? '$kartu  -  $goldar' : kartu,
+            style: const TextStyle(
+                fontSize: 8.4, color: AppColors.textGrey, height: 1.15),
+          ),
+        ],
+      ),
     );
   }
 

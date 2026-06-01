@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/fcm_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/event_utils.dart';
+import '../../core/utils/local_notification_service.dart';
 import 'edit_acara_penyelenggara_page.dart';
 
 class DetailAcaraPenyelenggaraPage extends StatefulWidget {
@@ -82,6 +84,17 @@ class _DetailAcaraPenyelenggaraPageState
           'Halo pahlawan! Mengingatkan jadwal donor darahmu di ${widget.eventData['tempat']} besok. Jangan sampai lupa ya!',
         );
       }
+
+      // Jadwalkan pengingat lokal H-1 sebelum tanggal pelaksanaan.
+      final eventDate =
+          (widget.eventData['tanggalPelaksanaan'] ?? '').toString();
+      await LocalNotificationService.scheduleEventReminder(
+        id: widget.eventId.hashCode & 0x7fffffff,
+        title: 'Pengingat Donor Darah',
+        body:
+            'Besok ada acara donor darah di ${widget.eventData['tempat'] ?? 'lokasi PMI'}. Jangan lupa ya!',
+        eventDate: eventDate,
+      );
 
       // 5. Catat di database bahwa pengingat sudah pernah dikirim
       await FirebaseFirestore.instance

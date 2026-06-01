@@ -1,7 +1,14 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/local_notification_service.dart';
 
 class DetailAcaraPage extends StatefulWidget {
   final String eventId;
@@ -19,6 +26,8 @@ class DetailAcaraPage extends StatefulWidget {
 
 class _DetailAcaraPageState extends State<DetailAcaraPage> {
   bool _isLoading = false;
+  bool _isSharing = false;
+  final GlobalKey _shareKey = GlobalKey();
 
   Future<void> _setPengingat() async {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -64,6 +73,21 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
         'waktuSet': FieldValue.serverTimestamp(),
       });
 
+      final eventTitle = (widget.eventData['namaAcara'] ??
+              widget.eventData['judul'] ??
+              'Acara Donor Darah')
+          .toString();
+      final eventDate = (widget.eventData['tanggalPelaksanaan'] ??
+              widget.eventData['tanggal'] ??
+              '')
+          .toString();
+      await LocalNotificationService.scheduleEventReminder(
+        id: widget.eventId.hashCode & 0x7fffffff,
+        title: 'Pengingat Donor Darah',
+        body: 'Besok ada acara "$eventTitle". Jangan lupa ikut donor darah ya!',
+        eventDate: eventDate,
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -81,6 +105,48 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _shareEventImage() async {
+    setState(() => _isSharing = true);
+    try {
+      // Beri jeda agar overlay loading tidak ikut tercapture.
+      await Future.delayed(const Duration(milliseconds: 50));
+      final boundary = _shareKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('Konten belum siap dibagikan.');
+      }
+
+      final image = await boundary.toImage(pixelRatio: 2.5);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw Exception('Gagal memproses gambar.');
+      }
+      final pngBytes = byteData.buffer.asUint8List();
+
+      final dir = await getTemporaryDirectory();
+      final file = File(
+          '${dir.path}/acara_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(pngBytes);
+
+      final title = (widget.eventData['namaAcara'] ??
+              widget.eventData['judul'] ??
+              'Acara Donor Darah')
+          .toString();
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Yuk ikut donor darah: $title',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal membagikan: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
     }
   }
 
@@ -102,63 +168,66 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 14),
-                _buildBanner(imageUrl),
-                const SizedBox(height: 14),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    height: 1.25,
-                    color: AppColors.textDark,
+          child: RepaintBoundary(
+            key: _shareKey,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 14),
+                  _buildBanner(imageUrl),
+                  const SizedBox(height: 14),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 9.8,
-                    height: 1.32,
-                    color: AppColors.textGrey,
-                    fontWeight: FontWeight.w400,
+                  const SizedBox(height: 12),
+                  Text(
+                    description,
+                    style: const TextStyle(
+                      fontSize: 9.8,
+                      height: 1.32,
+                      color: AppColors.textGrey,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'Syarat & Ketentuan Donor',
-                  style: TextStyle(
-                    fontSize: 10.2,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Syarat & Ketentuan Donor',
+                    style: TextStyle(
+                      fontSize: 10.2,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const _BulletItem(text: 'Usia 17–60 tahun'),
-                const _BulletItem(text: 'Berat badan minimal 45 kg'),
-                const _BulletItem(text: 'Tekanan darah normal'),
-                const _BulletItem(
-                    text:
-                        'Tidak sedang demam, flu, atau mengonsumsi obat tertentu'),
-                const _BulletItem(
-                    text: 'Sudah donor terakhir minimal 3 bulan lalu'),
-                const SizedBox(height: 14),
-                _buildInfoSection(
-                    date: date, location: location, contact: contact),
-                const SizedBox(height: 18),
-                _buildBottomActions(context),
-              ],
+                  const SizedBox(height: 8),
+                  const _BulletItem(text: 'Usia 17–60 tahun'),
+                  const _BulletItem(text: 'Berat badan minimal 45 kg'),
+                  const _BulletItem(text: 'Tekanan darah normal'),
+                  const _BulletItem(
+                      text:
+                          'Tidak sedang demam, flu, atau mengonsumsi obat tertentu'),
+                  const _BulletItem(
+                      text: 'Sudah donor terakhir minimal 3 bulan lalu'),
+                  const SizedBox(height: 14),
+                  _buildInfoSection(
+                      date: date, location: location, contact: contact),
+                  const SizedBox(height: 18),
+                  _buildBottomActions(context),
+                ],
+              ),
             ),
           ),
         ),
@@ -289,14 +358,16 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Fitur bagikan akan datang nanti.')),
-              );
-            },
-            icon: const Icon(Icons.share_outlined,
-                size: 18, color: AppColors.primary),
+            onPressed: _isSharing ? null : _shareEventImage,
+            icon: _isSharing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppColors.primary),
+                  )
+                : const Icon(Icons.share_outlined,
+                    size: 18, color: AppColors.primary),
           ),
         ),
       ],

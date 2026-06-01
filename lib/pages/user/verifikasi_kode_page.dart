@@ -41,10 +41,11 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             child: Container(
-              width: 360,
-              padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
+              constraints: const BoxConstraints(maxWidth: 480),
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(22),
@@ -81,10 +82,10 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
   Widget _buildTitle() {
     return const Text(
       'Kode Verifikasi Dikirim',
-      style: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textDark,
+     style: TextStyle(
+        fontSize: 22,
+       fontWeight: FontWeight.w700,
+       color: AppColors.textDark,
       ),
     );
   }
@@ -95,8 +96,8 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
       children: [
         Container(
           width: 2.5,
-          height: 50,
-          margin: const EdgeInsets.only(top: 2),
+          height: 56,
+         margin: const EdgeInsets.only(top: 2),
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(2),
@@ -106,10 +107,10 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
         const Expanded(
           child: Text(
             'Kami telah mengirimkan kode verifikasi 6 digit ke nomor email kamu.',
-            style: TextStyle(
-              fontSize: 11,
-              height: 1.35,
-              color: AppColors.textGrey,
+           style: TextStyle(
+              fontSize: 13,
+             height: 1.35,
+             color: AppColors.textGrey,
             ),
           ),
         ),
@@ -120,10 +121,10 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
   Widget _buildLabel() {
     return const Text(
       'Kode Verifikasi',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        color: AppColors.textDark,
+     style: TextStyle(
+        fontSize: 14,
+       fontWeight: FontWeight.w700,
+       color: AppColors.textDark,
       ),
     );
   }
@@ -132,10 +133,10 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(6, (index) {
-        return SizedBox(
-          width: 45,
-          height: 50,
-          child: TextField(
+       return SizedBox(
+          width: 52,
+          height: 58,
+         child: TextField(
             controller: _controllers[index],
             focusNode: _focusNodes[index],
             textAlign: TextAlign.center,
@@ -143,10 +144,10 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
             obscureText: true,
             maxLength: 1,
             cursorColor: AppColors.primary,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
+           style: const TextStyle(
+              fontSize: 20,
+             fontWeight: FontWeight.w600,
+             color: AppColors.textDark,
             ),
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
@@ -187,10 +188,10 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
   }
 
   Widget _buildVerifyButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 42,
-      child: ElevatedButton(
+   return SizedBox(
+     width: double.infinity,
+      height: 52,
+     child: ElevatedButton(
         onPressed: () {
           Navigator.push(
             context,
@@ -209,9 +210,9 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
         ),
         child: const Text(
           'Verifikasi Kode',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
+         style: TextStyle(
+            fontSize: 15,
+           fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -226,10 +227,10 @@ class _VerifikasiKodePageState extends State<VerifikasiKodePage> {
           padding: EdgeInsets.symmetric(vertical: 4),
           child: Text(
             'Kembali',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primary,
+           style: TextStyle(
+              fontSize: 14,
+             fontWeight: FontWeight.w500,
+             color: AppColors.primary,
             ),
           ),
         ),
