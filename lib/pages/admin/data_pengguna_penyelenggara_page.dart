@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants/app_assets.dart';
+import '../../core/constants/feature_flags.dart';
 import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import 'beranda_penyelenggara_page.dart';
 import 'data_acara_penyelenggara_page.dart';
 import 'data_donor_penyelenggara_page.dart';
 import 'login_penyelenggara_page.dart';
-import 'tambah_pengguna_page.dart';
 import 'edit_pengguna_page.dart';
 
 /// Halaman data pengguna penyelenggara.
@@ -23,6 +23,7 @@ class _DataPenggunaPenyelenggaraPageState
     extends State<DataPenggunaPenyelenggaraPage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _deletingUserId;
 
   @override
   void dispose() {
@@ -103,8 +104,12 @@ class _DataPenggunaPenyelenggaraPageState
                         return Center(child: Text('Error: ${snapshot.error}'));
                       }
 
-                      List<QueryDocumentSnapshot> docs =
+                      final rawDocs =
                           snapshot.hasData ? snapshot.data!.docs : [];
+                      final docs = rawDocs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>? ?? {};
+                        return !_isSoftDeletedUser(data);
+                      }).toList();
 
                       // 1. MENGHITUNG STATISTIK SECARA OTOMATIS
                       int totalPengguna = docs.length;
@@ -173,7 +178,9 @@ class _DataPenggunaPenyelenggaraPageState
                                       return Padding(
                                         padding: EdgeInsets.only(
                                           bottom:
-                                              index == docs.length - 1 ? 0 : 10,
+                                              index == filteredDocs.length - 1
+                                                  ? 0
+                                                  : 10,
                                         ),
                                         child: _buildUserCard(
                                             context, data, docId),
@@ -202,8 +209,8 @@ class _DataPenggunaPenyelenggaraPageState
           children: [
             Image.asset(
               AppAssets.logo,
-              width: 34,
-              height: 34,
+              width: 42,
+              height: 42,
               fit: BoxFit.contain,
             ),
             const SizedBox(width: 6),
@@ -213,8 +220,8 @@ class _DataPenggunaPenyelenggaraPageState
                 Text(
                   'Reliable Emergency',
                   style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.lightPink,
                     height: 1.0,
                   ),
@@ -223,8 +230,8 @@ class _DataPenggunaPenyelenggaraPageState
                 Text(
                   'Donor',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                     height: 1.0,
                   ),
@@ -325,12 +332,15 @@ class _DataPenggunaPenyelenggaraPageState
     );
   }
 
-  // Mengubah parameter menjadi data dari Firebase
+  bool _isSoftDeletedUser(Map<String, dynamic> data) {
+    return data['isDeleted'] == true || data['status'] == 'Dihapus';
+  }
+
   Widget _buildUserCard(
       BuildContext context, Map<String, dynamic> data, String docId) {
-    final status = data['status'] == 'Terverifikasi'
-        ? 'Terverifikasi'
-        : 'Pending'; // Default pending jika kosong
+    final status =
+        data['status'] == 'Terverifikasi' ? 'Terverifikasi' : 'Pending';
+    final isDeleting = _deletingUserId == docId;
 
     return InkWell(
       onTap: () {
@@ -405,60 +415,196 @@ class _DataPenggunaPenyelenggaraPageState
               children: [
                 _buildStatusBadge(status),
                 const SizedBox(height: 10),
-                InkWell(
-                  onTap: () {
-                    // DI SINI KITA NANTI AKAN MENGIRIMKAN DATA KE HALAMAN EDIT
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EditPenggunaPage(
-                          userId: docId,
-                          userData: data,
-                        ),
-                      ),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.borderLight,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(
-                          Icons.edit_outlined,
-                          size: 11,
-                          color: AppColors.lightPink,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Edit',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: AppColors.lightPink,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildActionButton(
+                  label: 'Edit',
+                  icon: Icons.edit_outlined,
+                  color: AppColors.lightPink,
+                  onTap: _deletingUserId == null
+                      ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditPenggunaPage(
+                                userId: docId,
+                                userData: data,
+                              ),
+                            ),
+                          );
+                        }
+                      : null,
                 ),
+                if (enableUserDelete) ...[
+                  const SizedBox(height: 8),
+                  _buildActionButton(
+                    label: isDeleting ? 'Hapus...' : 'Hapus',
+                    icon: Icons.delete_outline,
+                    color: AppColors.primary,
+                    onTap: _deletingUserId == null
+                        ? () => _showDeleteUserDialog(context, data, docId)
+                        : null,
+                  ),
+                ],
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Opacity(
+        opacity: onTap == null ? 0.55 : 1,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderLight, width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 11, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDeleteUserDialog(
+    BuildContext context,
+    Map<String, dynamic> data,
+    String userId,
+  ) async {
+    final nama = (data['namaLengkap'] ?? 'Tanpa Nama').toString();
+    final email = (data['email'] ?? '-').toString();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Hapus User untuk Testing?',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Fitur ini hanya untuk testing/deployment sementara, bukan final release production.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildDeleteInfoRow('Nama', nama),
+              _buildDeleteInfoRow('Email', email),
+              _buildDeleteInfoRow('ID', userId),
+              const SizedBox(height: 10),
+              const Text(
+                'User akan disembunyikan dari daftar dan pencarian pendonor. Data donor/acara/riwayat lama tidak ikut dihapus.',
+                style: TextStyle(fontSize: 12, color: AppColors.textGrey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text(
+                'Batal',
+                style: TextStyle(color: AppColors.textGrey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+              ),
+              child: const Text('Hapus User'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _softDeleteUser(userId);
+    }
+  }
+
+  Widget _buildDeleteInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12, color: AppColors.textDark),
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _softDeleteUser(String userId) async {
+    if (_deletingUserId != null) return;
+
+    setState(() => _deletingUserId = userId);
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'isDeleted': true,
+        'deletedAt': FieldValue.serverTimestamp(),
+        'deletedBy': 'admin',
+        'status': 'Dihapus',
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User berhasil dihapus untuk testing.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal menghapus user. Silakan coba lagi.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _deletingUserId = null);
+      }
+    }
   }
 
   Widget _buildStatusBadge(String status) {

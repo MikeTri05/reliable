@@ -208,8 +208,8 @@ class _AcaraPageState extends State<AcaraPage> {
           children: [
             Image.asset(
               AppAssets.logo,
-              width: 34,
-              height: 34,
+              width: 42,
+              height: 42,
               fit: BoxFit.contain,
             ),
             const SizedBox(width: 6),
@@ -219,8 +219,8 @@ class _AcaraPageState extends State<AcaraPage> {
                 Text(
                   'Reliable Emergency',
                   style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.lightPink,
                     height: 1.1,
                   ),
@@ -229,8 +229,8 @@ class _AcaraPageState extends State<AcaraPage> {
                 Text(
                   'Donor',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                     height: 1.0,
                   ),
@@ -365,7 +365,7 @@ class _AcaraCard extends StatelessWidget {
         highlightColor: AppColors.primary.withOpacity(0.05),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(14),
@@ -381,8 +381,8 @@ class _AcaraCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  width: 82,
-                  height: 56,
+                  width: 90,
+                  height: 68,
                   color: AppColors.secondary,
                   child: imageUrl.isNotEmpty
                       ? Image.network(
@@ -405,7 +405,7 @@ class _AcaraCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: SizedBox(
-                  height: 56,
+                  height: 68,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -419,8 +419,8 @@ class _AcaraCard extends StatelessWidget {
                                 maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 10.2,
-                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                   height: 1.28,
                                   color: AppColors.textDark,
                                 ),
@@ -449,7 +449,7 @@ class _AcaraCard extends StatelessWidget {
                         child: Text(
                           date,
                           style: const TextStyle(
-                            fontSize: 8.6,
+                            fontSize: 10.5,
                             color: AppColors.textGrey,
                           ),
                         ),

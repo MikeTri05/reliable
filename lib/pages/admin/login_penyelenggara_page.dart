@@ -21,6 +21,7 @@ class _LoginPenyelenggaraPageState extends State<LoginPenyelenggaraPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _prosesLoginAdmin() async {
     String idAdmin = _idController.text.trim();
@@ -127,8 +128,9 @@ class _LoginPenyelenggaraPageState extends State<LoginPenyelenggaraPage> {
                   const SizedBox(height: 10),
                   _buildTextField(
                     hintText: 'Password',
-                    obscureText: true,
+                    obscureText: _obscurePassword,
                     controller: _passwordController,
+                    isPassword: true,
                   ),
                   const SizedBox(height: 20),
                   _buildLoginButton(context),
@@ -151,8 +153,8 @@ class _LoginPenyelenggaraPageState extends State<LoginPenyelenggaraPage> {
         children: [
           Image.asset(
             AppAssets.logo,
-            width: 118,
-            height: 118,
+            width: 64,
+            height: 64,
             fit: BoxFit.contain,
           ),
           const SizedBox(width: 10),
@@ -249,6 +251,7 @@ class _LoginPenyelenggaraPageState extends State<LoginPenyelenggaraPage> {
     required String hintText,
     required bool obscureText,
     required TextEditingController controller,
+    bool isPassword = false,
  }) {
    return SizedBox(
       height: 52,
@@ -268,6 +271,20 @@ class _LoginPenyelenggaraPageState extends State<LoginPenyelenggaraPage> {
           filled: true,
           fillColor: AppColors.white,
           isDense: true,
+          suffixIcon: isPassword
+              ? IconButton(
+                  splashRadius: 18,
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 20,
+                    color: AppColors.textGrey,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                )
+              : null,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 12,

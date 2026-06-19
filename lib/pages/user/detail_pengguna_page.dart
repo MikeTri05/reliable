@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
-import 'berhasil_page.dart';
 
 class DetailPenggunaPage extends StatefulWidget {
   const DetailPenggunaPage({super.key});

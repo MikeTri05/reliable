@@ -66,7 +66,7 @@ class PenggunaPage extends StatelessWidget {
                     _buildSettingItem(
                       context,
                       icon: Icons.shield_outlined,
-                      title: 'Keamanan',
+                      title: 'Kata Sandi',
                       onTap: () {
                         Navigator.push(
                           context,
@@ -122,8 +122,8 @@ class PenggunaPage extends StatelessWidget {
           children: [
             Image.asset(
               AppAssets.logo,
-              width: 34,
-              height: 34,
+              width: 42,
+              height: 42,
               fit: BoxFit.contain,
             ),
             const SizedBox(width: 6),
@@ -133,8 +133,8 @@ class PenggunaPage extends StatelessWidget {
                 Text(
                   'Reliable Emergency',
                   style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.lightPink,
                     height: 1.1,
                   ),
@@ -143,8 +143,8 @@ class PenggunaPage extends StatelessWidget {
                 Text(
                   'Donor',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                     height: 1.0,
                   ),

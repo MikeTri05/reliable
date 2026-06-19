@@ -13,6 +13,8 @@ class KeamananPage extends StatefulWidget {
 class _KeamananPageState extends State<KeamananPage> {
   bool isEditing = false;
   bool isSaving = false;
+  bool _obscureNewPassword = true;
+  bool _obscureConfirmPassword = true;
 
   late final TextEditingController emailController;
   late final TextEditingController passwordController;
@@ -81,6 +83,8 @@ class _KeamananPageState extends State<KeamananPage> {
       if (mounted) {
         setState(() {
           isEditing = false;
+          _obscureNewPassword = true;
+          _obscureConfirmPassword = true;
           passwordController.clear();
           confirmPasswordController.clear();
         });
@@ -139,9 +143,13 @@ class _KeamananPageState extends State<KeamananPage> {
               const SizedBox(height: 6),
               _buildSecurityField(
                 controller: passwordController,
-                obscureText: true,
+                obscureText: _obscureNewPassword,
                 isReadOnly: !isEditing,
                 hintText: isEditing ? 'Ketik password baru...' : '********',
+                showVisibilityToggle: isEditing,
+                onToggleVisibility: () => setState(
+                  () => _obscureNewPassword = !_obscureNewPassword,
+                ),
               ),
 
               // 👇 KOLOM KONFIRMASI BARU 👇
@@ -153,9 +161,13 @@ class _KeamananPageState extends State<KeamananPage> {
                 const SizedBox(height: 6),
                 _buildSecurityField(
                   controller: confirmPasswordController,
-                  obscureText: true,
+                  obscureText: _obscureConfirmPassword,
                   isReadOnly: false,
                   hintText: 'Ketik ulang password...',
+                  showVisibilityToggle: true,
+                  onToggleVisibility: () => setState(
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                  ),
                 ),
               ],
 
@@ -194,6 +206,8 @@ class _KeamananPageState extends State<KeamananPage> {
             setState(() {
               isEditing = !isEditing;
               if (!isEditing) {
+                _obscureNewPassword = true;
+                _obscureConfirmPassword = true;
                 passwordController.clear();
                 confirmPasswordController.clear();
               }
@@ -215,6 +229,8 @@ class _KeamananPageState extends State<KeamananPage> {
     bool obscureText = false,
     bool isReadOnly = true,
     String? hintText,
+    bool showVisibilityToggle = false,
+    VoidCallback? onToggleVisibility,
   }) {
     return SizedBox(
       height: 42,
@@ -232,6 +248,19 @@ class _KeamananPageState extends State<KeamananPage> {
           hintStyle: const TextStyle(fontSize: 12, color: AppColors.textGrey),
           filled: true,
           fillColor: isReadOnly ? AppColors.offWhite : AppColors.white,
+          suffixIcon: showVisibilityToggle
+              ? IconButton(
+                  splashRadius: 18,
+                  icon: Icon(
+                    obscureText
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 20,
+                    color: AppColors.textGrey,
+                  ),
+                  onPressed: onToggleVisibility,
+                )
+              : null,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           enabledBorder: OutlineInputBorder(

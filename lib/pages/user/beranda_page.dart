@@ -129,8 +129,8 @@ class _BerandaPageState extends State<BerandaPage> {
             _bannerCount =
                 bannerDocs.length; // Update jumlah banner untuk fungsi Timer
 
-            // Sisanya dimasukkan ke list "Acara Lainnya"
-            final historyDocs = docs.length > 3 ? docs.sublist(3) : [];
+            // Tampilkan daftar acara di dashboard agar halaman tidak kosong.
+            final daftarDocs = docs.take(4).toList();
 
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -159,8 +159,8 @@ class _BerandaPageState extends State<BerandaPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Image.asset(AppAssets.logo,
-                                      width: 34,
-                                      height: 34,
+                                      width: 42,
+                                      height: 42,
                                       fit: BoxFit.contain),
                                   const SizedBox(width: 6),
                                   const Column(
@@ -169,15 +169,15 @@ class _BerandaPageState extends State<BerandaPage> {
                                     children: [
                                       Text('Reliable Emergency',
                                           style: TextStyle(
-                                              fontSize: 8,
-                                              fontWeight: FontWeight.w500,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
                                               color: AppColors.lightPink,
                                               height: 1.1)),
                                       SizedBox(height: 1),
                                       Text('Donor',
                                           style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
                                               color: AppColors.primary,
                                               height: 1.0)),
                                     ],
@@ -271,45 +271,48 @@ class _BerandaPageState extends State<BerandaPage> {
                   ),
                   const SizedBox(height: 18),
 
-                  // 👇 DAFTAR ACARA LAINNYA 👇
-                  if (historyDocs.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Acara Lainnya',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textDark),
-                          ),
-                          InkWell(
-                            onTap: () => _onBottomTap(context, 1),
-                            child: const Text('Lihat Semua',
+                  // Daftar acara terbaru di dashboard.
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Daftar Acara Donor',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textDark),
+                        ),
+                        InkWell(
+                          onTap: () => _onBottomTap(context, 1),
+                          borderRadius: BorderRadius.circular(10),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            child: Text('Lihat Semua',
                                 style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                     color: AppColors.primary)),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...historyDocs.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final docId = doc.id;
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                            left: 8, right: 8, bottom: 14),
-                        child: _HistoryCard(
-                          eventData: data,
-                          onTap: () => _openDetail(context, docId, data),
                         ),
-                      );
-                    }),
-                  ]
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...daftarDocs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final docId = doc.id;
+                    return Padding(
+                      padding: const EdgeInsets.only(
+                          left: 8, right: 8, bottom: 14),
+                      child: _HistoryCard(
+                        eventData: data,
+                        onTap: () => _openDetail(context, docId, data),
+                      ),
+                    );
+                  })
                 ],
               ),
             );
@@ -551,15 +554,15 @@ class _HistoryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  width: 76,
-                  height: 62,
+                  width: 84,
+                  height: 68,
                   color: AppColors.secondary,
                   child: imageUrl.isNotEmpty
                       ? Image.network(imageUrl,
@@ -574,7 +577,7 @@ class _HistoryCard extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: SizedBox(
-                  height: 62,
+                  height: 68,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -587,8 +590,8 @@ class _HistoryCard extends StatelessWidget {
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                       height: 1.3,
                                       color: AppColors.textDark)),
                             ),
@@ -614,7 +617,7 @@ class _HistoryCard extends StatelessWidget {
                           alignment: Alignment.bottomRight,
                           child: Text(date,
                               style: const TextStyle(
-                                  fontSize: 9, color: AppColors.textGrey))),
+                                  fontSize: 10.5, color: AppColors.textGrey))),
                     ],
                   ),
                 ),

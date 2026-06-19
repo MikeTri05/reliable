@@ -3,6 +3,7 @@ import '../../core/fcm_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/event_utils.dart';
+import '../../core/utils/profile_utils.dart';
 import 'masukan_data_donor_page.dart';
 
 class DetailDataDonorPage extends StatefulWidget {
@@ -140,6 +141,24 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
     );
   }
 
+  String _displayBloodType(dynamic value) {
+    final raw = value?.toString().trim().toUpperCase() ?? '';
+    if (raw.isEmpty || raw == '-') return '-';
+    if (bloodTypeOptions.contains(raw)) return raw;
+    if (['A', 'B', 'AB', 'O'].contains(raw)) return raw;
+    return raw;
+  }
+
+  String? _bloodGroup(dynamic value) {
+    final goldar = _displayBloodType(value);
+    if (goldar == '-') return null;
+    if (goldar.startsWith('AB')) return 'AB';
+    if (goldar.startsWith('A')) return 'A';
+    if (goldar.startsWith('B')) return 'B';
+    if (goldar.startsWith('O')) return 'O';
+    return null;
+  }
+
   Widget _buildBloodSummary() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -150,21 +169,22 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
         var total = 0;
-        final perGolongan = <String, int>{};
+        final perGolongan = <String, int>{
+          'A': 0,
+          'B': 0,
+          'AB': 0,
+          'O': 0,
+        };
 
         for (final doc in docs) {
           final data = doc.data() as Map<String, dynamic>? ?? {};
           final bags = parseBagCount(data['jumlahKantong']);
-          final goldar =
-              (data['golonganDarah'] ?? '-').toString().toUpperCase();
+          final group = _bloodGroup(data['golonganDarah']);
           total += bags;
-          perGolongan[goldar] = (perGolongan[goldar] ?? 0) + bags;
+          if (group != null) {
+            perGolongan[group] = (perGolongan[group] ?? 0) + bags;
+          }
         }
-
-        final entries = perGolongan.entries
-            .where((e) => e.key != '-' && e.key.isNotEmpty)
-            .toList()
-          ..sort((a, b) => a.key.compareTo(b.key));
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,34 +197,49 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                 color: AppColors.primary,
               ),
             ),
-            if (entries.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: entries
-                    .map((e) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondary,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${e.key}: ${e.value}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ))
-                    .toList(),
+            const SizedBox(height: 8),
+            const Text(
+              'Detail Golongan Darah',
+              style: TextStyle(
+                fontSize: 10.8,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark,
               ),
-            ],
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: perGolongan.entries
+                  .map((entry) => _buildBloodSummaryChip(
+                        entry.key,
+                        entry.value,
+                      ))
+                  .toList(),
+            ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildBloodSummaryChip(String label, int count) {
+    return Container(
+      width: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$label: $count',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
+      ),
     );
   }
 
@@ -249,10 +284,11 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
           borderRadius: BorderRadius.circular(6),
           child: Table(
             columnWidths: const {
-              0: FixedColumnWidth(26),
+              0: FixedColumnWidth(24),
               1: FlexColumnWidth(),
-              2: FixedColumnWidth(40),
-              3: FixedColumnWidth(28),
+              2: FixedColumnWidth(42),
+              3: FixedColumnWidth(38),
+              4: FixedColumnWidth(28),
             },
             border: const TableBorder(
               top: BorderSide(color: AppColors.lightPink, width: 0.8),
@@ -270,6 +306,7 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                 children: [
                   _buildHeaderCell('No'),
                   _buildHeaderCell('Peserta'),
+                  _buildHeaderCell('Goldar'),
                   _buildHeaderCell('Kantong'),
                   _buildHeaderCell('Aksi'),
                 ],
@@ -288,13 +325,13 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                     _buildPesertaCell(
                       nama: data['nama'] ?? '-',
                       kartu: data['kartu'] ?? '-',
-                      goldar: goldar,
                     ),
+                    _buildGoldarCell(goldar),
                     _buildBodyCell('$bags', centered: true),
                     _buildActionCell(pesertaId),
                   ],
                 );
-              }).toList(),
+              }),
             ],
           ),
         );
@@ -331,7 +368,6 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
   Widget _buildPesertaCell({
     required String nama,
     required String kartu,
-    required String goldar,
   }) {
     return Container(
       constraints: const BoxConstraints(minHeight: 34),
@@ -343,6 +379,8 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
         children: [
           Text(
             nama,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -351,11 +389,31 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
           ),
           const SizedBox(height: 2),
           Text(
-            goldar != '-' ? '$kartu  -  $goldar' : kartu,
+            kartu,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
                 fontSize: 8.4, color: AppColors.textGrey, height: 1.15),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGoldarCell(String goldar) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 30),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+      child: Text(
+        _displayBloodType(goldar),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 9.4,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+          height: 1.15,
+        ),
       ),
     );
   }

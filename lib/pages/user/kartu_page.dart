@@ -107,8 +107,8 @@ class KartuPage extends StatelessWidget {
                   Text(
                     'Reliable Emergency',
                     style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.lightPink,
                       height: 1.1,
                     ),
@@ -117,8 +117,8 @@ class KartuPage extends StatelessWidget {
                   Text(
                     'Donor',
                     style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.primary,
                       height: 1.0,
                     ),
@@ -264,8 +264,8 @@ class KartuPage extends StatelessWidget {
                 children: [
                   Image.asset(
                     AppAssets.logo,
-                    width: 22,
-                    height: 22,
+                    width: 28,
+                    height: 28,
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(width: 6),

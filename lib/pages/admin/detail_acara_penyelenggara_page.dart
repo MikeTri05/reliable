@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/fcm_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/utils/event_utils.dart';
 import '../../core/utils/local_notification_service.dart';
 import 'edit_acara_penyelenggara_page.dart';
 
@@ -27,20 +26,16 @@ class _DetailAcaraPenyelenggaraPageState
     extends State<DetailAcaraPenyelenggaraPage> {
   bool _isLoading = false;
 
-  // 👇 FUNGSI SAPU JAGAT: MENGUMPULKAN TOKEN & MENGIRIM PENGINGAT 👇
-  // 👇 TIMPA SELURUH FUNGSI INI DARI AWAL SAMPAI AKHIR 👇
   Future<void> _kirimPengingat() async {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Buka folder 'pengingat' khusus untuk acara ini
       final pengingatSnapshot = await FirebaseFirestore.instance
           .collection('acara')
           .doc(widget.eventId)
           .collection('pengingat')
           .get();
 
-      // 2. Cek apakah ada orang yang menekan tombol "Ingatkan Saya"
       if (pengingatSnapshot.docs.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -53,50 +48,53 @@ class _DetailAcaraPenyelenggaraPageState
         return;
       }
 
-      // 3. KUMPULKAN TOKEN DI SINI (Ini yang membuat daftarToken tidak merah)
+      final title = 'Pengingat Donor Darah';
+      final message =
+          'Halo pahlawan! Mengingatkan jadwal donor darahmu di ${widget.eventData['tempat'] ?? 'lokasi PMI'} besok. Jangan sampai lupa ya!';
+
       List<String> daftarToken = [];
+      var inboxCount = 0;
       for (var doc in pengingatSnapshot.docs) {
         final data = doc.data();
+        final userId = (data['userId'] ?? doc.id).toString();
         final token = data['fcmToken'];
         if (token != null && token.toString().isNotEmpty) {
-          daftarToken.add(token.toString());
+          final tokenText = token.toString();
+          daftarToken.add(tokenText);
+          await FCMService.sendPushNotification(tokenText, title, message);
+        }
+
+        if (userId.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('notifikasi')
+              .doc('reminder_sent_${widget.eventId}')
+              .set({
+            'judul': title,
+            'pesan': message,
+            'waktu': Timestamp.now(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'eventId': widget.eventId,
+            'tipe': 'pengingat_acara_admin',
+            'dibaca': false,
+          }, SetOptions(merge: true));
+          inboxCount++;
         }
       }
 
-      if (daftarToken.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'Data pengingat ditemukan, tapi tidak ada Token HP yang valid.')),
-          );
-        }
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // 4. DI SINI TEMPAT API FCM BEKERJA (Mesin Roket)
-      // Kita "tembak" notifikasinya satu per satu ke semua Token yang terkumpul
-      for (String token in daftarToken) {
-        await FCMService.sendPushNotification(
-          token,
-          'Pengingat Donor Darah PMI 🩸',
-          'Halo pahlawan! Mengingatkan jadwal donor darahmu di ${widget.eventData['tempat']} besok. Jangan sampai lupa ya!',
-        );
-      }
-
-      // Jadwalkan pengingat lokal H-1 sebelum tanggal pelaksanaan.
       final eventDate =
           (widget.eventData['tanggalPelaksanaan'] ?? '').toString();
+      final eventTime = (widget.eventData['jamPelaksanaan'] ?? '').toString();
       await LocalNotificationService.scheduleEventReminder(
         id: widget.eventId.hashCode & 0x7fffffff,
         title: 'Pengingat Donor Darah',
         body:
             'Besok ada acara donor darah di ${widget.eventData['tempat'] ?? 'lokasi PMI'}. Jangan lupa ya!',
         eventDate: eventDate,
+        eventTime: eventTime,
       );
 
-      // 5. Catat di database bahwa pengingat sudah pernah dikirim
       await FirebaseFirestore.instance
           .collection('acara')
           .doc(widget.eventId)
@@ -108,7 +106,7 @@ class _DetailAcaraPenyelenggaraPageState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Berhasil mengirim notifikasi ke ${daftarToken.length} HP pendonor! 🔔🚀'),
+                'Berhasil mengirim push ke ${daftarToken.length} HP dan menyimpan $inboxCount pesan inbox.'),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -146,7 +144,7 @@ class _DetailAcaraPenyelenggaraPageState
               children: [
                 _buildHeader(context),
                 const SizedBox(height: 14),
-                _buildBannerPlaceholder(),
+                _buildBanner(),
                 const SizedBox(height: 14),
                 _buildTitle(),
                 const SizedBox(height: 10),
@@ -170,8 +168,6 @@ class _DetailAcaraPenyelenggaraPageState
                   value: '+62 823-2326-0023',
                 ),
                 const SizedBox(height: 28),
-
-                // 👇 TOMBOL PEMICU NOTIFIKASI 👇
                 _buildTriggerButton(),
               ],
             ),
@@ -237,28 +233,50 @@ class _DetailAcaraPenyelenggaraPageState
     );
   }
 
-  Widget _buildBannerPlaceholder() {
+  Widget _buildBanner() {
+    final imageUrl = (widget.eventData['imageUrl'] ??
+            widget.eventData['gambarUrl'] ??
+            widget.eventData['image_url'] ??
+            '')
+        .toString();
+
     return Container(
       width: double.infinity,
       height: 156,
       decoration: BoxDecoration(
         color: AppColors.secondary,
         borderRadius: BorderRadius.circular(14),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.secondary,
-            AppColors.fieldFillSoft,
-          ],
-        ),
+        gradient: imageUrl.isEmpty
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.secondary,
+                  AppColors.fieldFillSoft,
+                ],
+              )
+            : null,
       ),
-      child: const Center(
-        child: Icon(
-          Icons.photo_outlined,
-          size: 42,
-          color: AppColors.lightPink,
-        ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: imageUrl.isNotEmpty
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildBannerPlaceholderIcon(),
+              )
+            : _buildBannerPlaceholderIcon(),
+      ),
+    );
+  }
+
+  Widget _buildBannerPlaceholderIcon() {
+    return const Center(
+      child: Icon(
+        Icons.photo_outlined,
+        size: 42,
+        color: AppColors.lightPink,
       ),
     );
   }

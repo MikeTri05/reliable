@@ -1,5 +1,4 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import 'event_utils.dart';
@@ -16,7 +15,8 @@ class LocalNotificationService {
       AndroidNotificationDetails(
     'event_reminder_channel',
     'Pengingat Acara Donor',
-    channelDescription: 'Pengingat acara donor darah H-1 sebelum pelaksanaan.',
+    channelDescription:
+        'Pengingat acara donor darah H-1 sesuai jam pelaksanaan.',
     importance: Importance.max,
     priority: Priority.high,
   );
@@ -24,12 +24,7 @@ class LocalNotificationService {
   static Future<void> init() async {
     if (_initialized) return;
 
-    tzdata.initializeTimeZones();
-    try {
-      tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
-    } catch (_) {
-      // Biarkan default UTC jika lokasi tidak tersedia.
-    }
+    ensureWibTimeZoneInitialized();
 
     const androidInit =
         AndroidInitializationSettings('@mipmap/ic_red_launcher');
@@ -43,29 +38,26 @@ class LocalNotificationService {
     _initialized = true;
   }
 
-  /// Jadwalkan pengingat H-1 pukul 08:00 sebelum tanggal pelaksanaan.
+  /// Jadwalkan pengingat H-1 pada jam pelaksanaan acara.
   /// Mengembalikan true jika notifikasi berhasil dijadwalkan.
   static Future<bool> scheduleEventReminder({
     required int id,
     required String title,
     required String body,
     required String eventDate,
+    String? eventTime,
   }) async {
     await init();
 
-    final parsed = parseEventDate(eventDate);
-    if (parsed == null) return false;
-
-    final reminderDate = parsed.subtract(const Duration(days: 1));
-    final scheduled = tz.TZDateTime(
-      tz.local,
-      reminderDate.year,
-      reminderDate.month,
-      reminderDate.day,
-      8,
+    final scheduledDateTime = reminderDateTimeFromEventDate(
+      eventDate,
+      eventTime: eventTime,
     );
+    final location = getWibLocation();
+    if (scheduledDateTime == null || location == null) return false;
 
-    if (scheduled.isBefore(tz.TZDateTime.now(tz.local))) {
+    final scheduled = tz.TZDateTime.from(scheduledDateTime, location);
+    if (scheduled.isBefore(tz.TZDateTime.now(location))) {
       return false;
     }
 

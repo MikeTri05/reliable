@@ -1,8 +1,8 @@
 import 'dart:io'; // Wajib untuk menangani file gambar
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // Wajib untuk upload gambar
 import 'package:image_picker/image_picker.dart'; // Wajib untuk ambil gambar dari HP
+import '../../core/utils/event_image_storage.dart';
 import '../../core/theme/app_colors.dart';
 import 'berhasil_tambah_acara_page.dart';
 
@@ -23,9 +23,15 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
 
   bool _isLoading = false;
 
-  // 👇 Variabel baru untuk menampung gambar 👇
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
+
+  bool _isAllowedImagePath(String path) =>
+      EventImageStorage.isAllowedImagePath(path);
+
+  Future<String> _uploadImageToStorage(File imageFile) async {
+    return EventImageStorage.uploadPosterImage(imageFile: imageFile);
+  }
 
   // Fungsi untuk mengambil gambar dari Kamera atau Galeri
   Future<void> _pickImage(ImageSource source) async {
@@ -35,12 +41,23 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
         imageQuality: 75, // Kompres gambar agar tidak terlalu besar
       );
 
-      if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
+      if (pickedFile == null) return;
+
+      if (!_isAllowedImagePath(pickedFile.path)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Format gambar harus JPG, JPEG, PNG, atau WEBP.'),
+          ),
+        );
+        return;
       }
+
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal mengambil gambar: $e')),
       );
@@ -68,20 +85,8 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
     try {
       String imageUrl = '';
 
-      // 1. PROSES UPLOAD GAMBAR KE FIREBASE STORAGE DULU
       if (_imageFile != null) {
-        // Buat nama file yang unik berdasarkan waktu
-        String fileName = DateTime.now().millisecondsSinceEpoch.toString();
-        // Arahkan ke folder 'poster_acara' di Storage
-        Reference ref =
-            FirebaseStorage.instance.ref().child('poster_acara/$fileName.jpg');
-
-        // Mulai upload
-        UploadTask uploadTask = ref.putFile(_imageFile!);
-        TaskSnapshot snapshot = await uploadTask;
-
-        // Ambil URL link gambar yang sudah berhasil diupload
-        imageUrl = await snapshot.ref.getDownloadURL();
+        imageUrl = await _uploadImageToStorage(_imageFile!);
       }
 
       // 2. SIMPAN DATA KE FIRESTORE BESERTA LINK GAMBARNYA
@@ -91,8 +96,7 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
         'tanggalPelaksanaan': _formatDate(selectedDate),
         'jamPelaksanaan': _formatTime(selectedTime),
         'tempat': tempat,
-        'imageUrl':
-            imageUrl, // <-- Ini dia yang baru! Link gambar tersimpan di sini
+        'imageUrl': imageUrl,
         'tanggalDibuat': FieldValue.serverTimestamp(),
       });
 
@@ -107,7 +111,7 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Terjadi kesalahan: $e')),
+          SnackBar(content: Text('Gagal menyimpan acara: $e')),
         );
       }
     } finally {
@@ -185,12 +189,9 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
                   const SizedBox(height: 6),
                   _buildPlaceField(),
                   const SizedBox(height: 18),
-
-                  // 👇 Mengubah kotak foto agar bisa menampilkan pratinjau 👇
                   _imageFile != null
                       ? _buildPhotoPreview()
                       : _buildPhotoPlaceholder(context),
-
                   const SizedBox(height: 76),
                   _buildAddButton(context),
                 ],
@@ -620,7 +621,7 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
                   title: const Text('Pilih dari galeri'),
                   onTap: () {
                     Navigator.pop(bottomSheetContext); // Tutup bottom sheet
-                    _pickImage(ImageSource.gallery); // Panggil galeri
+                    _pickImage(ImageSource.gallery);
                   },
                 ),
                 ListTile(
@@ -632,7 +633,7 @@ class _TambahAcaraPageState extends State<TambahAcaraPage> {
                   title: const Text('Ambil dari kamera'),
                   onTap: () {
                     Navigator.pop(bottomSheetContext); // Tutup bottom sheet
-                    _pickImage(ImageSource.camera); // Panggil kamera
+                    _pickImage(ImageSource.camera);
                   },
                 ),
               ],

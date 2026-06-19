@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/event_utils.dart';
 import '../../core/utils/profile_utils.dart';
@@ -29,91 +28,84 @@ class ManajemenKantongDarahPage extends StatelessWidget {
                 Expanded(
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collectionGroup('peserta')
+                        .collection('acara')
                         .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+                    builder: (context, eventSnapshot) {
+                      if (eventSnapshot.hasError) {
+                        return _buildError(eventSnapshot.error);
+                      }
+
+                      if (eventSnapshot.connectionState ==
+                              ConnectionState.waiting &&
+                          !eventSnapshot.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
 
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            'Gagal memuat data: ${snapshot.error}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textGrey,
-                            ),
-                          ),
-                        );
-                      }
+                      final eventsById = <String, _EventMeta>{
+                        for (final doc in eventSnapshot.data?.docs ?? [])
+                          doc.id: _EventMeta.fromDoc(doc),
+                      };
 
-                      final summary = _BagSummary.fromDocs(
-                        snapshot.data?.docs ?? [],
-                      );
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collectionGroup('peserta')
+                            .snapshots(),
+                        builder: (context, pesertaSnapshot) {
+                          if (pesertaSnapshot.hasError) {
+                            return _buildError(pesertaSnapshot.error);
+                          }
 
-                      return ListView(
-                        physics: const BouncingScrollPhysics(),
-                        children: [
-                          _buildTotalCard(summary.totalBags),
-                          const SizedBox(height: 18),
-                          _buildSectionTitle('Stok Per Golongan Darah'),
-                          const SizedBox(height: 10),
-                          _buildBloodTypeGrid(summary.bagsByBloodType),
-                          const SizedBox(height: 20),
-                          _buildSectionTitle('Kantong Per Acara'),
-                          const SizedBox(height: 10),
-                          if (summary.bagsByEvent.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: Text(
-                                  'Belum ada kantong darah yang tercatat.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textGrey,
+                          if (pesertaSnapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !pesertaSnapshot.hasData) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+
+                          final summary = _BagSummary.fromDocs(
+                            pesertaSnapshot.data?.docs ?? [],
+                            eventsById,
+                          );
+
+                          return ListView(
+                            physics: const BouncingScrollPhysics(),
+                            children: [
+                              _buildTotalCard(summary.totalBags),
+                              const SizedBox(height: 18),
+                              _buildSectionTitle('Stok Per Golongan Darah'),
+                              const SizedBox(height: 10),
+                              _buildBloodTypeGrid(summary.bagsByBloodType),
+                              const SizedBox(height: 20),
+                              _buildSectionTitle('Kantong Per Acara'),
+                              const SizedBox(height: 10),
+                              if (summary.bagsByEvent.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(
+                                    child: Text(
+                                      'Belum ada kantong darah yang tercatat.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textGrey,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                ...summary.bagsByEvent.map(
+                                  (eventTotal) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _buildEventBagRow(
+                                      eventName: eventTotal.eventName,
+                                      eventDate: eventTotal.eventDate,
+                                      bagCount: eventTotal.bagCount,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            )
-                          else
-                            ...summary.bagsByEvent.entries.map(
-                              (entry) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _buildEventBagRow(
-                                  eventName: entry.key,
-                                  bagCount: entry.value,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 20),
-                          _buildSectionTitle('Ubah Kantong Donor'),
-                          const SizedBox(height: 10),
-                          if (summary.records.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: Text(
-                                  'Belum ada data donor yang bisa diubah.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textGrey,
-                                  ),
-                                ),
-                              ),
-                            )
-                          else
-                            ...summary.records.map(
-                              (record) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _buildEditableBagRow(
-                                  context,
-                                  record: record,
-                                ),
-                              ),
-                            ),
-                        ],
+                            ],
+                          );
+                        },
                       );
                     },
                   ),
@@ -121,6 +113,19 @@ class ManajemenKantongDarahPage extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError(Object? error) {
+    return Center(
+      child: Text(
+        'Gagal memuat data: $error',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 12,
+          color: AppColors.textGrey,
         ),
       ),
     );
@@ -270,6 +275,7 @@ class ManajemenKantongDarahPage extends StatelessWidget {
 
   Widget _buildEventBagRow({
     required String eventName,
+    required DateTime? eventDate,
     required int bagCount,
   }) {
     return Container(
@@ -282,15 +288,31 @@ class ManajemenKantongDarahPage extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              eventName,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  eventName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                if (eventDate != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    formatEventDate(eventDate),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.textGrey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(width: 10),
@@ -306,253 +328,122 @@ class ManajemenKantongDarahPage extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildEditableBagRow(
-    BuildContext context, {
-    required _DonationBagRecord record,
-  }) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight, width: 1),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record.donorName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${record.eventName} • ${record.bloodType}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: AppColors.textGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            formatBagCount(record.bagCount),
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Ubah kantong',
-            onPressed: () => _showEditBagDialog(context, record),
-            icon: const Icon(
-              Icons.edit_outlined,
-              size: 18,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showEditBagDialog(
-    BuildContext context,
-    _DonationBagRecord record,
-  ) async {
-    final controller = TextEditingController(text: record.bagCount.toString());
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Ubah Kantong Darah'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                record.donorName,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                record.eventName,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textGrey,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'Jumlah Kantong',
-                  hintText: 'Contoh: 1',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final value = int.tryParse(controller.text.trim()) ?? 0;
-                final navigator = Navigator.of(dialogContext);
-                final messenger = ScaffoldMessenger.of(context);
-
-                if (value < 1) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Jumlah kantong minimal 1.'),
-                    ),
-                  );
-                  return;
-                }
-
-                try {
-                  await record.reference.update({
-                    'jumlahKantong': value.toString(),
-                    'updatedAt': FieldValue.serverTimestamp(),
-                  });
-                  navigator.pop();
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Jumlah kantong berhasil diperbarui.'),
-                    ),
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Gagal mengubah kantong: $e')),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-              ),
-              child: const Text('Simpan'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-  }
 }
 
 class _BagSummary {
   final int totalBags;
   final Map<String, int> bagsByBloodType;
-  final Map<String, int> bagsByEvent;
-  final List<_DonationBagRecord> records;
+  final List<_EventBagTotal> bagsByEvent;
 
   const _BagSummary({
     required this.totalBags,
     required this.bagsByBloodType,
     required this.bagsByEvent,
-    required this.records,
   });
 
-  factory _BagSummary.fromDocs(List<QueryDocumentSnapshot> docs) {
+  factory _BagSummary.fromDocs(
+    List<QueryDocumentSnapshot> docs,
+    Map<String, _EventMeta> eventsById,
+  ) {
     final bloodTypeTotals = <String, int>{
       for (final type in bloodTypeOptions) type: 0,
     };
-    final eventTotals = <String, int>{};
-    final records = <_DonationBagRecord>[];
+    final eventTotals = <String, _EventBagTotal>{};
     var total = 0;
 
     for (final doc in docs) {
       final data = doc.data() as Map<String, dynamic>? ?? {};
-      if ((data['status'] ?? '').toString() != 'Selesai') continue;
+      final status = (data['status'] ?? '').toString().trim().toLowerCase();
+      if (status != 'selesai') continue;
 
       final bagCount = parseBagCount(data['jumlahKantong']);
+      if (bagCount <= 0) continue;
+
       final rawBloodType =
-          (data['golonganDarah'] ?? '').toString().toUpperCase();
-      final bloodType =
-          bloodTypeOptions.contains(rawBloodType) ? rawBloodType : null;
-      final eventName = (data['namaAcara'] ?? 'Tanpa Nama Acara').toString();
-      final donorName = (data['nama'] ?? 'Tanpa Nama').toString();
+          (data['golonganDarah'] ?? '').toString().trim().toUpperCase();
+      final bloodType = bloodTypeOptions.contains(rawBloodType)
+          ? rawBloodType
+          : ['A', 'B', 'AB', 'O'].contains(rawBloodType)
+              ? '$rawBloodType+'
+              : null;
+      final eventRef = doc.reference.parent.parent;
+      if (eventRef == null || eventRef.parent.id != 'acara') continue;
+
+      final eventId = eventRef.id;
+      final eventMeta = eventsById[eventId];
+      final eventName = eventMeta?.name ??
+          (data['namaAcara'] ?? data['judulAcara'] ?? data['judul'])
+              ?.toString()
+              .trim();
+      final safeEventName = eventName == null || eventName.isEmpty
+          ? 'Tanpa Nama Acara'
+          : eventName;
+      final eventDate = eventMeta?.date ??
+          parseEventDate(data['tanggalPelaksanaan']?.toString());
+      final key = eventId.isNotEmpty ? eventId : safeEventName;
 
       total += bagCount;
       if (bloodType != null) {
         bloodTypeTotals[bloodType] =
             (bloodTypeTotals[bloodType] ?? 0) + bagCount;
       }
-      eventTotals[eventName] = (eventTotals[eventName] ?? 0) + bagCount;
-      records.add(
-        _DonationBagRecord(
-          reference: doc.reference,
-          donorName: donorName,
-          eventName: eventName,
-          bloodType: bloodType ?? '-',
-          bagCount: bagCount,
-        ),
+
+      final current = eventTotals[key];
+      eventTotals[key] = _EventBagTotal(
+        eventName: current?.eventName ?? safeEventName,
+        eventDate: current?.eventDate ?? eventDate,
+        bagCount: (current?.bagCount ?? 0) + bagCount,
       );
     }
 
-    records.sort((a, b) => a.eventName.compareTo(b.eventName));
+    final sortedEventTotals = eventTotals.values.toList()
+      ..sort((a, b) {
+        final aDate = a.eventDate;
+        final bDate = b.eventDate;
+        if (aDate != null && bDate != null) {
+          final dateCompare = bDate.compareTo(aDate);
+          if (dateCompare != 0) return dateCompare;
+        } else if (aDate != null) {
+          return -1;
+        } else if (bDate != null) {
+          return 1;
+        }
+        return a.eventName.toLowerCase().compareTo(b.eventName.toLowerCase());
+      });
 
     return _BagSummary(
       totalBags: total,
       bagsByBloodType: bloodTypeTotals,
-      bagsByEvent: eventTotals,
-      records: records,
+      bagsByEvent: sortedEventTotals,
     );
   }
 }
 
-class _DonationBagRecord {
-  final DocumentReference reference;
-  final String donorName;
+class _EventMeta {
+  final String name;
+  final DateTime? date;
+
+  const _EventMeta({required this.name, required this.date});
+
+  factory _EventMeta.fromDoc(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final rawName =
+        (data['judul'] ?? data['namaAcara'] ?? data['nama'])?.toString().trim();
+    return _EventMeta(
+      name: rawName == null || rawName.isEmpty ? 'Tanpa Nama Acara' : rawName,
+      date: parseEventDate(data['tanggalPelaksanaan']?.toString()),
+    );
+  }
+}
+
+class _EventBagTotal {
   final String eventName;
-  final String bloodType;
+  final DateTime? eventDate;
   final int bagCount;
 
-  const _DonationBagRecord({
-    required this.reference,
-    required this.donorName,
+  const _EventBagTotal({
     required this.eventName,
-    required this.bloodType,
+    required this.eventDate,
     required this.bagCount,
   });
 }

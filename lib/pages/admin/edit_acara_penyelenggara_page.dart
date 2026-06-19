@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../core/utils/event_image_storage.dart';
 import '../../core/theme/app_colors.dart';
 
 class EditAcaraPenyelenggaraPage extends StatefulWidget {
@@ -25,6 +29,9 @@ class _EditAcaraPenyelenggaraPageState
 
   late DateTime selectedDate;
   late TimeOfDay selectedTime;
+  File? _imageFile;
+  late String _existingImageUrl;
+  final ImagePicker _picker = ImagePicker();
 
   bool _isLoading = false; // Indikator loading saat menyimpan
 
@@ -33,14 +40,21 @@ class _EditAcaraPenyelenggaraPageState
     super.initState();
     // Mengisi kolom dengan data asli dari Firestore, bukan teks statis lagi
     _namaController = TextEditingController(text: widget.eventData['judul']);
-    _deskripsiController = TextEditingController(text: widget.eventData['deskripsi']);
+    _deskripsiController =
+        TextEditingController(text: widget.eventData['deskripsi']);
     _tempatController = TextEditingController(text: widget.eventData['tempat']);
+    _existingImageUrl = (widget.eventData['imageUrl'] ??
+            widget.eventData['gambarUrl'] ??
+            widget.eventData['image_url'] ??
+            '')
+        .toString();
 
     // Mengurai tanggal
     String tgl = widget.eventData['tanggalPelaksanaan'] ?? '';
     if (tgl.isNotEmpty && tgl.contains('-')) {
       var parts = tgl.split('-');
-      selectedDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+      selectedDate = DateTime(
+          int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
     } else {
       selectedDate = DateTime.now();
     }
@@ -49,7 +63,8 @@ class _EditAcaraPenyelenggaraPageState
     String jam = widget.eventData['jamPelaksanaan'] ?? '';
     if (jam.isNotEmpty && jam.contains(':')) {
       var parts = jam.split(':');
-      selectedTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      selectedTime =
+          TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
     } else {
       selectedTime = TimeOfDay.now();
     }
@@ -73,13 +88,23 @@ class _EditAcaraPenyelenggaraPageState
     });
 
     try {
-      await FirebaseFirestore.instance.collection('acara').doc(widget.eventId).update({
+      var imageUrl = _existingImageUrl;
+      if (_imageFile != null) {
+        imageUrl = await _uploadImageToStorage(_imageFile!);
+      }
+
+      await FirebaseFirestore.instance
+          .collection('acara')
+          .doc(widget.eventId)
+          .update({
         'judul': nama,
         'deskripsi': deskripsi,
         'tanggalPelaksanaan': _formatDate(selectedDate),
         'jamPelaksanaan': _formatTime(selectedTime),
         'tempat': tempat,
+        'imageUrl': imageUrl,
       });
+      _existingImageUrl = imageUrl;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -421,12 +446,14 @@ class _EditAcaraPenyelenggaraPageState
   }
 
   Widget _buildPhotoPreviewArea(BuildContext context) {
+    final hasNetworkImage = _existingImageUrl.trim().isNotEmpty;
+
     return InkWell(
       onTap: () => _showPhotoAction(context),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         width: double.infinity,
-        height: 92,
+        height: 120,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.offWhite,
@@ -436,58 +463,64 @@ class _EditAcaraPenyelenggaraPageState
             width: 1,
           ),
         ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: AppColors.borderLight,
-                    width: 1,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.photo_outlined,
-                  size: 22,
-                  color: AppColors.primary,
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 96,
+                height: 96,
+                color: AppColors.secondary,
+                child: _imageFile != null
+                    ? Image.file(_imageFile!, fit: BoxFit.cover)
+                    : hasNetworkImage
+                        ? Image.network(
+                            _existingImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildPhotoPlaceholderIcon(),
+                          )
+                        : _buildPhotoPlaceholderIcon(),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Ketuk untuk mengubah foto acara',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark,
                 ),
               ),
-              Positioned(
-                top: -6,
-                right: -6,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: const BoxDecoration(
-                    color: AppColors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 10,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+            const Icon(
+              Icons.edit_outlined,
+              size: 18,
+              color: AppColors.primary,
+            ),
+          ],
         ),
       ),
     );
   }
 
-Widget _buildSaveButton(BuildContext context) {
+  Widget _buildPhotoPlaceholderIcon() {
+    return const Center(
+      child: Icon(
+        Icons.photo_outlined,
+        size: 28,
+        color: AppColors.primary,
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       height: 42,
       child: ElevatedButton(
-        onPressed: _isLoading ? null : _updateAcara, // Arahkan ke fungsi backend
+        onPressed: _isLoading ? null : _updateAcara,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
@@ -564,6 +597,43 @@ Widget _buildSaveButton(BuildContext context) {
     }
   }
 
+  bool _isAllowedImagePath(String path) =>
+      EventImageStorage.isAllowedImagePath(path);
+
+  Future<String> _uploadImageToStorage(File imageFile) async {
+    return EventImageStorage.uploadPosterImage(
+      imageFile: imageFile,
+      eventId: widget.eventId,
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 75,
+      );
+      if (pickedFile == null) return;
+
+      if (!_isAllowedImagePath(pickedFile.path)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Format gambar harus JPG, JPEG, PNG, atau WEBP.'),
+          ),
+        );
+        return;
+      }
+
+      setState(() => _imageFile = File(pickedFile.path));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengambil gambar: $e')),
+      );
+    }
+  }
+
   void _showPhotoAction(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -596,11 +666,7 @@ Widget _buildSaveButton(BuildContext context) {
                   title: const Text('Pilih dari galeri'),
                   onTap: () {
                     Navigator.pop(bottomSheetContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Ubah foto belum tersedia'),
-                      ),
-                    );
+                    _pickImage(ImageSource.gallery);
                   },
                 ),
                 ListTile(
@@ -612,11 +678,7 @@ Widget _buildSaveButton(BuildContext context) {
                   title: const Text('Ambil dari kamera'),
                   onTap: () {
                     Navigator.pop(bottomSheetContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Ubah foto belum tersedia'),
-                      ),
-                    );
+                    _pickImage(ImageSource.camera);
                   },
                 ),
               ],

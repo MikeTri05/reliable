@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -8,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/event_utils.dart';
 import '../../core/utils/local_notification_service.dart';
 
 class DetailAcaraPage extends StatefulWidget {
@@ -53,25 +53,7 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
           .collection('pengingat');
 
       final cekAlarm = await subKoleksiPengingat.doc(currentUser.uid).get();
-
-      if (cekAlarm.exists) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Anda sudah memasang pengingat untuk acara ini!')),
-          );
-        }
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      await subKoleksiPengingat.doc(currentUser.uid).set({
-        'userId': currentUser.uid,
-        'nama': currentUser.displayName ?? 'Pendonor',
-        'fcmToken': fcmToken,
-        'waktuSet': FieldValue.serverTimestamp(),
-      });
+      final alreadySet = cekAlarm.exists;
 
       final eventTitle = (widget.eventData['namaAcara'] ??
               widget.eventData['judul'] ??
@@ -81,18 +63,66 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
               widget.eventData['tanggal'] ??
               '')
           .toString();
+      final eventTime = (widget.eventData['jamPelaksanaan'] ??
+              widget.eventData['jam'] ??
+              widget.eventData['waktuPelaksanaan'] ??
+              '')
+          .toString();
+      final reminderAt = reminderDateTimeFromEventDate(
+        eventDate,
+        eventTime: eventTime,
+      );
+      if (reminderAt == null) {
+        throw Exception('Tanggal acara tidak valid.');
+      }
+      final reminderTimestamp = Timestamp.fromDate(reminderAt);
+
+      await subKoleksiPengingat.doc(currentUser.uid).set({
+        'userId': currentUser.uid,
+        'nama': currentUser.displayName ?? 'Pendonor',
+        'fcmToken': fcmToken,
+        'waktuSet': FieldValue.serverTimestamp(),
+        'eventId': widget.eventId,
+        'eventTitle': eventTitle,
+        'eventDate': eventDate,
+        'eventTime': eventTime,
+        'reminderAtWib': reminderTimestamp,
+      }, SetOptions(merge: true));
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .collection('notifikasi')
+          .doc('reminder_${widget.eventId}')
+          .set({
+        'judul': 'Pengingat Donor Darah',
+        'pesan':
+            'Besok ada acara "$eventTitle". Jangan lupa ikut donor darah ya!',
+        'waktu': reminderTimestamp,
+        'waktuTerjadwal': reminderTimestamp,
+        'createdAt': FieldValue.serverTimestamp(),
+        'eventId': widget.eventId,
+        'tipe': 'pengingat_acara',
+        'dibaca': false,
+      }, SetOptions(merge: true));
+
       await LocalNotificationService.scheduleEventReminder(
         id: widget.eventId.hashCode & 0x7fffffff,
         title: 'Pengingat Donor Darah',
         body: 'Besok ada acara "$eventTitle". Jangan lupa ikut donor darah ya!',
         eventDate: eventDate,
+        eventTime: eventTime,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Pengingat berhasil dipasang! Kami akan memberi tahu Anda saat acara mendekat 🔔')),
+          SnackBar(
+            content: Text(
+              alreadySet
+                  ? 'Pengingat berhasil diperbarui.'
+                  : 'Pengingat berhasil dipasang! Kami akan memberi tahu Anda saat acara mendekat.',
+            ),
+          ),
         );
       }
     } catch (e) {
@@ -161,7 +191,9 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
     final String date = data['tanggalPelaksanaan'] ?? data['tanggal'] ?? '-';
     final String location = data['tempat'] ?? '-';
     final String contact = data['kontak'] ?? data['noHp'] ?? 'Penyelenggara';
-    final String imageUrl = data['gambarUrl'] ?? data['image_url'] ?? '';
+    final String imageUrl =
+        (data['imageUrl'] ?? data['gambarUrl'] ?? data['image_url'] ?? '')
+            .toString();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -322,7 +354,6 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
         Expanded(
           child: SizedBox(
             height: 40,
-            // 👇 UI TOMBOL BARU: "Ingatkan Saya" 👇
             child: ElevatedButton.icon(
               onPressed: _isLoading ? null : _setPengingat,
               icon: const Icon(Icons.notifications_active_outlined,

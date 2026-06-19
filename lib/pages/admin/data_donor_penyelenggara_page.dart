@@ -170,7 +170,7 @@ class _DataDonorPenyelenggaraPageState
       children: [
         Row(
           children: [
-            Image.asset(AppAssets.logo, width: 32, height: 32),
+            Image.asset(AppAssets.logo, width: 42, height: 42, fit: BoxFit.contain),
             const SizedBox(width: 6),
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,15 +178,15 @@ class _DataDonorPenyelenggaraPageState
                 Text(
                   'Reliable Emergency',
                   style: TextStyle(
-                    fontSize: 7.5,
+                    fontSize: 9.5,
                     color: AppColors.lightPink,
                   ),
                 ),
                 Text(
                   'Donor',
                   style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),
@@ -217,11 +217,29 @@ class _DataDonorPenyelenggaraPageState
                 .toLowerCase(); // <-- Menyimpan ketikan dan me-refresh layar
           });
         },
-        decoration: const InputDecoration(
-          hintText: 'Cari Acara',
-          hintStyle: TextStyle(color: AppColors.textGrey),
-          prefixIcon: Icon(Icons.search, color: AppColors.textGrey),
-          border: OutlineInputBorder(),
+        style: const TextStyle(
+            fontSize: 11.5, color: AppColors.textDark),
+        decoration: InputDecoration(
+          hintText: 'Cari acara...',
+          hintStyle: const TextStyle(
+              fontSize: 11.5, color: AppColors.textGrey),
+          prefixIcon: const Icon(Icons.search,
+              size: 18, color: AppColors.textGrey),
+          isDense: true,
+          filled: true,
+          fillColor: AppColors.white,
+          contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12, vertical: 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(9),
+            borderSide: const BorderSide(
+                color: AppColors.fieldBorder, width: 0.9),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(9),
+            borderSide: const BorderSide(
+                color: AppColors.primary, width: 1),
+          ),
         ),
       ),
     );

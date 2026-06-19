@@ -168,8 +168,8 @@ class _DataAcaraPenyelenggaraPageState
           children: [
             Image.asset(
               AppAssets.logo,
-              width: 32,
-              height: 32,
+              width: 42,
+              height: 42,
               fit: BoxFit.contain,
             ),
             const SizedBox(width: 6),
@@ -179,15 +179,15 @@ class _DataAcaraPenyelenggaraPageState
                 Text(
                   'Reliable Emergency',
                   style: TextStyle(
-                    fontSize: 7.5,
+                    fontSize: 9.5,
                     color: AppColors.lightPink,
                   ),
                 ),
                 Text(
                   'Donor',
                   style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),

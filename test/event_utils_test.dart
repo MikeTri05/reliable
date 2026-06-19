@@ -22,6 +22,27 @@ void main() {
     expect(isEventCompleted({'statusAcara': 'Selesai'}), isTrue);
   });
 
+  test('builds WIB reminder H-1 using event time', () {
+    final reminder = reminderDateTimeFromEventDate(
+      '20-06-2026',
+      eventTime: '23:00',
+    );
+
+    expect(reminder, isNotNull);
+    expect(reminder!.year, 2026);
+    expect(reminder.month, 6);
+    expect(reminder.day, 19);
+    expect(reminder.hour, 23);
+    expect(reminder.minute, 0);
+    expect(formatWibDateTime(reminder), '19 Jun 2026, 23:00 WIB');
+  });
+
+  test('formats UTC timestamp into WIB text', () {
+    final utcValue = DateTime.utc(2026, 6, 18, 1);
+
+    expect(formatWibDateTime(utcValue), '18 Jun 2026, 08:00 WIB');
+  });
+
   test('parses bag counts from stored values', () {
     expect(parseBagCount(2), 2);
     expect(parseBagCount('3 Kantong'), 3);

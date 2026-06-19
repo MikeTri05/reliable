@@ -7,7 +7,7 @@ class AppLogoHeader extends StatelessWidget {
 
   const AppLogoHeader({
     super.key,
-    this.logoSize = 110,
+    this.logoSize = 58,
   });
 
   @override
@@ -23,7 +23,6 @@ class AppLogoHeader extends StatelessWidget {
         ),
         const SizedBox(width: 12),
 
-        /// ❗ INI YANG DI FIX
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -186,8 +186,8 @@ class BerandaPenyelenggaraPage extends StatelessWidget {
           children: [
             Image.asset(
               AppAssets.logo,
-              width: 32,
-              height: 32,
+              width: 42,
+              height: 42,
               fit: BoxFit.contain,
             ),
             const SizedBox(width: 6),
@@ -197,7 +197,7 @@ class BerandaPenyelenggaraPage extends StatelessWidget {
                 Text(
                   'Reliable Emergency',
                   style: TextStyle(
-                    fontSize: 7.5,
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w500,
                     color: AppColors.lightPink,
                   ),
@@ -205,8 +205,8 @@ class BerandaPenyelenggaraPage extends StatelessWidget {
                 Text(
                   'Donor',
                   style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.primary,
                   ),
                 ),

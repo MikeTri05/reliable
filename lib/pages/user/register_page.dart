@@ -171,6 +171,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       isPassword: true),
+                  const SizedBox(height: 16),
                   _buildRegisterButton(context),
                   const SizedBox(height: 14),
                   _buildBackText(context),

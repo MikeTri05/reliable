@@ -138,6 +138,10 @@ class _MasukanDataDonorPageState extends State<MasukanDataDonorPage> {
 
         var docs = snapshot.data!.docs.where((doc) {
           var data = doc.data() as Map<String, dynamic>;
+          final isDeleted =
+              data['isDeleted'] == true || data['status'] == 'Dihapus';
+          if (isDeleted) return false;
+
           String nama = (data['namaLengkap'] ?? '').toLowerCase();
           return nama.contains(searchQuery);
         }).toList();
@@ -190,8 +194,8 @@ class _MasukanDataDonorPageState extends State<MasukanDataDonorPage> {
                   if (result != null) Navigator.pop(this.context, result);
                 },
                 borderRadius: BorderRadius.circular(6),
-                splashColor: AppColors.primary.withOpacity(0.06),
-                highlightColor: AppColors.primary.withOpacity(0.03),
+                splashColor: AppColors.primary.withValues(alpha: 0.06),
+                highlightColor: AppColors.primary.withValues(alpha: 0.03),
                 child: Container(
                   width: double.infinity,
                   padding:
@@ -205,12 +209,30 @@ class _MasukanDataDonorPageState extends State<MasukanDataDonorPage> {
                             : AppColors.offWhite,
                         width: 1),
                   ),
-                  child: Text(
-                    name,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textDark,
-                        fontWeight: FontWeight.w500),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textDark,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'ID: ${doc.id}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.textGrey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

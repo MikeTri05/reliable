@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'core/constants/app_assets.dart';
 import 'core/session/admin_session.dart';
 import 'core/theme/app_colors.dart';
 import 'core/utils/local_notification_service.dart';
@@ -93,9 +94,39 @@ class _SplashPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.background,
-      body: Center(child: CircularProgressIndicator()),
+    return Scaffold(
+      backgroundColor: AppColors.white,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              AppAssets.logo,
+              width: 104,
+              height: 104,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Reliable Emergency',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.lightPink,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Donor',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
