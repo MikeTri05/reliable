@@ -43,7 +43,9 @@ class ManajemenKantongDarahPage extends StatelessWidget {
 
                       final eventsById = <String, _EventMeta>{
                         for (final doc in eventSnapshot.data?.docs ?? [])
-                          doc.id: _EventMeta.fromDoc(doc),
+                          if (!isEventDeleted(
+                              doc.data() as Map<String, dynamic>? ?? {}))
+                            doc.id: _EventMeta.fromDoc(doc),
                       };
 
                       return StreamBuilder<QuerySnapshot>(
@@ -371,14 +373,16 @@ class _BagSummary {
 
       final eventId = eventRef.id;
       final eventMeta = eventsById[eventId];
-      final eventName = eventMeta?.name ??
-          (data['namaAcara'] ?? data['judulAcara'] ?? data['judul'])
+      if (eventMeta == null) continue;
+      final eventName = eventMeta.name.isNotEmpty
+          ? eventMeta.name
+          : (data['namaAcara'] ?? data['judulAcara'] ?? data['judul'])
               ?.toString()
               .trim();
       final safeEventName = eventName == null || eventName.isEmpty
           ? 'Tanpa Nama Acara'
           : eventName;
-      final eventDate = eventMeta?.date ??
+      final eventDate = eventMeta.date ??
           parseEventDate(data['tanggalPelaksanaan']?.toString());
       final key = eventId.isNotEmpty ? eventId : safeEventName;
 

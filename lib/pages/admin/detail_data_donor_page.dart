@@ -555,11 +555,15 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                 .get();
             final fcmToken = userDoc.data()?['fcmToken'];
 
-            if (fcmToken != null) {
+            const notificationTitle = 'Terima Kasih, Pahlawan! 🦸‍♂️🩸';
+            const notificationMessage =
+                'Darahmu telah didonorkan. Kamu bisa berdonor kembali setelah melewati masa pemulihan 90 hari.';
+
+            if (fcmToken != null && fcmToken.toString().isNotEmpty) {
               await FCMService.sendPushNotification(
-                fcmToken,
-                'Terima Kasih, Pahlawan! 🦸‍♂️🩸',
-                'Darahmu telah didonorkan. Kamu bisa berdonor kembali setelah melewati masa pemulihan 90 hari.',
+                fcmToken.toString(),
+                notificationTitle,
+                notificationMessage,
               );
             }
 
@@ -567,13 +571,15 @@ class _DetailDataDonorPageState extends State<DetailDataDonorPage> {
                 .collection('users')
                 .doc(targetUserId)
                 .collection('notifikasi')
-                .add({
-              'judul': 'Terima Kasih, Pahlawan! 🦸‍♂️🩸',
-              'pesan':
-                  'Darahmu telah didonorkan. Kamu bisa berdonor kembali setelah melewati masa pemulihan 90 hari.',
+                .doc('donor_selesai_${widget.eventId}')
+                .set({
+              'judul': notificationTitle,
+              'pesan': notificationMessage,
               'waktu': FieldValue.serverTimestamp(),
+              'eventId': widget.eventId,
+              'tipe': 'donor_selesai',
               'dibaca': false,
-            });
+            }, SetOptions(merge: true));
 
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

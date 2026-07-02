@@ -1,4 +1,4 @@
-import 'dart:async'; // 👇 IMPORT BARU UNTUK TIMER OTOMATIS
+import 'dart:async'; // Ã°Å¸â€˜â€¡ IMPORT BARU UNTUK TIMER OTOMATIS
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +7,7 @@ import '../../core/constants/app_assets.dart';
 import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/event_utils.dart';
+import '../../core/utils/local_notification_service.dart';
 import 'acara_page.dart';
 import 'detail_acara_page.dart';
 import 'kartu_page.dart';
@@ -24,6 +25,8 @@ class BerandaPage extends StatefulWidget {
 class _BerandaPageState extends State<BerandaPage> {
   final PageController _pageController = PageController();
   Timer? _timer;
+  StreamSubscription<QuerySnapshot>? _inboxNotificationSubscription;
+  StreamSubscription<RemoteMessage>? _pushMessageSubscription;
   int _currentPage = 0;
   int _bannerCount = 0;
   late final Stream<QuerySnapshot> _acaraStream;
@@ -43,11 +46,13 @@ class _BerandaPageState extends State<BerandaPage> {
   void dispose() {
     _timer
         ?.cancel(); // Matikan timer kalau halaman ditutup biar gak bocor memori
+    _inboxNotificationSubscription?.cancel();
+    _pushMessageSubscription?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
-  // 👇 FUNGSI PENGGESER BANNER OTOMATIS (4 DETIK) 👇
+  // Ã°Å¸â€˜â€¡ FUNGSI PENGGESER BANNER OTOMATIS (4 DETIK) Ã°Å¸â€˜â€¡
   void _startAutoSlide() {
     _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (_pageController.hasClients && _bannerCount > 1) {
@@ -93,10 +98,70 @@ class _BerandaPageState extends State<BerandaPage> {
                 .update({'fcmToken': newToken});
           });
         }
+
+        _listenToForegroundPushNotifications();
+        _listenToInboxNotifications(currentUser.uid);
       }
     } catch (e) {
       print('Gagal mengatur Push Notification: $e');
     }
+  }
+
+  void _listenToForegroundPushNotifications() {
+    _pushMessageSubscription ??= FirebaseMessaging.onMessage.listen((message) {
+      final notification = message.notification;
+      final title =
+          notification?.title ?? message.data['title'] ?? 'Notifikasi';
+      final body = notification?.body ?? message.data['body'] ?? '';
+      if (body.toString().trim().isEmpty) return;
+
+      LocalNotificationService.showInboxNotification(
+        notificationKey: 'fcm_${message.messageId ?? '${title}_$body'}',
+        title: title.toString(),
+        body: body.toString(),
+      );
+    });
+  }
+
+  void _listenToInboxNotifications(String userId) {
+    _inboxNotificationSubscription?.cancel();
+    var isInitialSnapshot = true;
+    _inboxNotificationSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('notifikasi')
+        .orderBy('waktu', descending: true)
+        .limit(20)
+        .snapshots()
+        .listen((snapshot) {
+      if (isInitialSnapshot) {
+        isInitialSnapshot = false;
+        return;
+      }
+
+      for (final change in snapshot.docChanges) {
+        if (change.type != DocumentChangeType.added &&
+            change.type != DocumentChangeType.modified) {
+          continue;
+        }
+
+        final data = change.doc.data();
+        if (data == null) continue;
+        if (!shouldShowInboxNotificationNow(data)) continue;
+
+        final title = (data['judul'] ?? 'Notifikasi').toString();
+        final body = (data['pesan'] ?? '').toString();
+        if (body.trim().isEmpty) continue;
+
+        LocalNotificationService.showInboxNotification(
+          notificationKey: LocalNotificationService.inboxNotificationKey(
+            change.doc.id,
+          ),
+          title: title,
+          body: body,
+        );
+      }
+    });
   }
 
   @override
@@ -115,7 +180,10 @@ class _BerandaPageState extends State<BerandaPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final docs = snapshot.data?.docs ?? [];
+            final docs = (snapshot.data?.docs ?? []).where((doc) {
+              final data = doc.data() as Map<String, dynamic>? ?? {};
+              return !isEventDeleted(data);
+            }).toList();
 
             if (docs.isEmpty) {
               return const Center(
@@ -124,7 +192,7 @@ class _BerandaPageState extends State<BerandaPage> {
               );
             }
 
-            // 👇 KITA AMBIL 3 ACARA TERBARU UNTUK JADI BANNER 👇
+            // Ã°Å¸â€˜â€¡ KITA AMBIL 3 ACARA TERBARU UNTUK JADI BANNER Ã°Å¸â€˜â€¡
             final bannerDocs = docs.take(3).toList();
             _bannerCount =
                 bannerDocs.length; // Update jumlah banner untuk fungsi Timer
@@ -140,7 +208,7 @@ class _BerandaPageState extends State<BerandaPage> {
                 children: [
                   const SizedBox(height: 10),
 
-                  // 👇 WADAH UTAMA HEADER & BANNER SLIDER 👇
+                  // Ã°Å¸â€˜â€¡ WADAH UTAMA HEADER & BANNER SLIDER Ã°Å¸â€˜â€¡
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -221,12 +289,12 @@ class _BerandaPageState extends State<BerandaPage> {
 
                         // --- BANNER SLIDER OTOMATIS ---
                         SizedBox(
-                         height: 165,
-                         child: PageView.builder(
-                           controller: _pageController,
-                           onPageChanged: (index) {
-                             setState(() => _currentPage = index);
-                           },
+                          height: 165,
+                          child: PageView.builder(
+                            controller: _pageController,
+                            onPageChanged: (index) {
+                              setState(() => _currentPage = index);
+                            },
                             itemCount: bannerDocs.length,
                             itemBuilder: (context, index) {
                               final data = bannerDocs[index].data()
@@ -305,8 +373,8 @@ class _BerandaPageState extends State<BerandaPage> {
                     final data = doc.data() as Map<String, dynamic>;
                     final docId = doc.id;
                     return Padding(
-                      padding: const EdgeInsets.only(
-                          left: 8, right: 8, bottom: 14),
+                      padding:
+                          const EdgeInsets.only(left: 8, right: 8, bottom: 14),
                       child: _HistoryCard(
                         eventData: data,
                         onTap: () => _openDetail(context, docId, data),
@@ -393,7 +461,7 @@ class _BerandaPageState extends State<BerandaPage> {
   }
 }
 
-// 👇 WIDGET KARTU UNTUK BANNER 👇
+// Ã°Å¸â€˜â€¡ WIDGET KARTU UNTUK BANNER Ã°Å¸â€˜â€¡
 class _BannerSlide extends StatelessWidget {
   final Map<String, dynamic> eventData;
   final VoidCallback onTap;
@@ -414,7 +482,7 @@ class _BannerSlide extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-       width: double.infinity,
+        width: double.infinity,
         decoration: BoxDecoration(
           color: AppColors.primary,
           borderRadius: BorderRadius.circular(16),

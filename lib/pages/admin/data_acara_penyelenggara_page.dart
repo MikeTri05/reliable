@@ -113,6 +113,7 @@ class _DataAcaraPenyelenggaraPageState
 
                       final filtered = snapshot.data!.docs.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
+                        if (isEventDeleted(data)) return false;
                         final title =
                             (data['judul'] ?? '').toString().toLowerCase();
                         return title.contains(_searchQuery);

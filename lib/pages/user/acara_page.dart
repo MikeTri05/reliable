@@ -138,6 +138,7 @@ class _AcaraPageState extends State<AcaraPage> {
 
                         final docs = snapshot.data!.docs.where((doc) {
                           final data = doc.data() as Map<String, dynamic>;
+                          if (isEventDeleted(data)) return false;
                           final title =
                               (data['namaAcara'] ?? data['judul'] ?? '')
                                   .toString()

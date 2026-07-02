@@ -27,9 +27,52 @@ class DetailAcaraPage extends StatefulWidget {
 class _DetailAcaraPageState extends State<DetailAcaraPage> {
   bool _isLoading = false;
   bool _isSharing = false;
+  bool _isReminderSet = false;
+  bool _isCheckingReminder = true;
   final GlobalKey _shareKey = GlobalKey();
 
+  @override
+  void initState() {
+    super.initState();
+    _loadReminderStatus();
+  }
+
+  Future<void> _loadReminderStatus() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (mounted) {
+        setState(() => _isCheckingReminder = false);
+      }
+      return;
+    }
+
+    try {
+      final reminderDoc = await FirebaseFirestore.instance
+          .collection('acara')
+          .doc(widget.eventId)
+          .collection('pengingat')
+          .doc(currentUser.uid)
+          .get();
+
+      if (!mounted) return;
+      setState(() {
+        _isReminderSet = reminderDoc.exists;
+        _isCheckingReminder = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isCheckingReminder = false);
+    }
+  }
+
   Future<void> _setPengingat() async {
+    if (_isReminderSet) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pengingat sudah dipasang.')),
+      );
+      return;
+    }
+
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -54,6 +97,15 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
 
       final cekAlarm = await subKoleksiPengingat.doc(currentUser.uid).get();
       final alreadySet = cekAlarm.exists;
+      if (alreadySet) {
+        if (mounted) {
+          setState(() => _isReminderSet = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Pengingat sudah dipasang.')),
+          );
+        }
+        return;
+      }
 
       final eventTitle = (widget.eventData['namaAcara'] ??
               widget.eventData['judul'] ??
@@ -77,6 +129,35 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
       }
       final reminderTimestamp = Timestamp.fromDate(reminderAt);
 
+      final notificationDocId = 'reminder_${widget.eventId}';
+      final notificationKey =
+          LocalNotificationService.inboxNotificationKey(notificationDocId);
+      final notificationTitle = 'Pengingat Donor Darah';
+      final notificationMessage =
+          'Besok ada acara "$eventTitle". Jangan lupa ikut donor darah ya!';
+      final notificationId =
+          LocalNotificationService.stableNotificationId(notificationKey);
+
+      await LocalNotificationService.cancelNotification(
+        LocalNotificationService.stableNotificationId(notificationDocId),
+      );
+      await LocalNotificationService.cancelNotification(
+        widget.eventId.hashCode & 0x7fffffff,
+      );
+
+      final scheduled = await LocalNotificationService.scheduleEventReminder(
+        id: notificationId,
+        title: notificationTitle,
+        body: notificationMessage,
+        eventDate: eventDate,
+        eventTime: eventTime,
+      );
+      if (!scheduled) {
+        throw Exception(
+          'Pengingat gagal dijadwalkan. Pastikan izin notifikasi dan alarm tepat aktif.',
+        );
+      }
+
       await subKoleksiPengingat.doc(currentUser.uid).set({
         'userId': currentUser.uid,
         'nama': currentUser.displayName ?? 'Pendonor',
@@ -93,11 +174,10 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
           .collection('users')
           .doc(currentUser.uid)
           .collection('notifikasi')
-          .doc('reminder_${widget.eventId}')
+          .doc(notificationDocId)
           .set({
-        'judul': 'Pengingat Donor Darah',
-        'pesan':
-            'Besok ada acara "$eventTitle". Jangan lupa ikut donor darah ya!',
+        'judul': notificationTitle,
+        'pesan': notificationMessage,
         'waktu': reminderTimestamp,
         'waktuTerjadwal': reminderTimestamp,
         'createdAt': FieldValue.serverTimestamp(),
@@ -105,22 +185,12 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
         'tipe': 'pengingat_acara',
         'dibaca': false,
       }, SetOptions(merge: true));
-
-      await LocalNotificationService.scheduleEventReminder(
-        id: widget.eventId.hashCode & 0x7fffffff,
-        title: 'Pengingat Donor Darah',
-        body: 'Besok ada acara "$eventTitle". Jangan lupa ikut donor darah ya!',
-        eventDate: eventDate,
-        eventTime: eventTime,
-      );
-
       if (mounted) {
+        setState(() => _isReminderSet = true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
-              alreadySet
-                  ? 'Pengingat berhasil diperbarui.'
-                  : 'Pengingat berhasil dipasang! Kami akan memberi tahu Anda saat acara mendekat.',
+              'Pengingat berhasil dipasang! Kami akan memberi tahu Anda saat acara mendekat.',
             ),
           ),
         );
@@ -245,7 +315,9 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const _BulletItem(text: 'Usia 17–60 tahun'),
+                  const _BulletItem(
+                      text:
+                          'Usia 17ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ60 tahun'),
                   const _BulletItem(text: 'Berat badan minimal 45 kg'),
                   const _BulletItem(text: 'Tekanan darah normal'),
                   const _BulletItem(
@@ -349,13 +421,24 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
   }
 
   Widget _buildBottomActions(BuildContext context) {
+    final canTapReminder = canRequestEventReminder(
+      isLoading: _isLoading,
+      isCheckingReminder: _isCheckingReminder,
+      isReminderSet: _isReminderSet,
+    );
+    final reminderText = reminderButtonText(
+      isLoading: _isLoading,
+      isCheckingReminder: _isCheckingReminder,
+      isReminderSet: _isReminderSet,
+    );
+
     return Row(
       children: [
         Expanded(
           child: SizedBox(
             height: 40,
             child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _setPengingat,
+              onPressed: canTapReminder ? _setPengingat : null,
               icon: const Icon(Icons.notifications_active_outlined,
                   color: AppColors.white, size: 17),
               label: _isLoading
@@ -365,10 +448,10 @@ class _DetailAcaraPageState extends State<DetailAcaraPage> {
                       child: CircularProgressIndicator(
                           color: AppColors.white, strokeWidth: 2),
                     )
-                  : const Text(
-                      'Ingatkan Saya',
-                      style:
-                          TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  : Text(
+                      reminderText,
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600),
                     ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,

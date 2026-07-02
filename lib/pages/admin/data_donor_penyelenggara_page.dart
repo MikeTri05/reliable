@@ -105,6 +105,7 @@ class _DataDonorPenyelenggaraPageState
                       // MENYARING DATA BERDASARKAN PENCARIAN
                       var docs = snapshot.data!.docs.where((doc) {
                         var data = doc.data() as Map<String, dynamic>? ?? {};
+                        if (isEventDeleted(data)) return false;
                         String title = (data['judul'] ?? '').toLowerCase();
                         final dateMatches = selectedDate == null ||
                             data['tanggalPelaksanaan'] ==
@@ -170,7 +171,8 @@ class _DataDonorPenyelenggaraPageState
       children: [
         Row(
           children: [
-            Image.asset(AppAssets.logo, width: 42, height: 42, fit: BoxFit.contain),
+            Image.asset(AppAssets.logo,
+                width: 42, height: 42, fit: BoxFit.contain),
             const SizedBox(width: 6),
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,28 +219,25 @@ class _DataDonorPenyelenggaraPageState
                 .toLowerCase(); // <-- Menyimpan ketikan dan me-refresh layar
           });
         },
-        style: const TextStyle(
-            fontSize: 11.5, color: AppColors.textDark),
+        style: const TextStyle(fontSize: 11.5, color: AppColors.textDark),
         decoration: InputDecoration(
           hintText: 'Cari acara...',
-          hintStyle: const TextStyle(
-              fontSize: 11.5, color: AppColors.textGrey),
-          prefixIcon: const Icon(Icons.search,
-              size: 18, color: AppColors.textGrey),
+          hintStyle: const TextStyle(fontSize: 11.5, color: AppColors.textGrey),
+          prefixIcon:
+              const Icon(Icons.search, size: 18, color: AppColors.textGrey),
           isDense: true,
           filled: true,
           fillColor: AppColors.white,
-          contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12, vertical: 8),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(
-                color: AppColors.fieldBorder, width: 0.9),
+            borderSide:
+                const BorderSide(color: AppColors.fieldBorder, width: 0.9),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(
-                color: AppColors.primary, width: 1),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1),
           ),
         ),
       ),

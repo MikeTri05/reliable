@@ -26,6 +26,67 @@ class _DetailAcaraPenyelenggaraPageState
     extends State<DetailAcaraPenyelenggaraPage> {
   bool _isLoading = false;
 
+  Future<void> _hapusAcara() async {
+    final eventTitle = (widget.eventData['judul'] ??
+            widget.eventData['namaAcara'] ??
+            'Acara tanpa judul')
+        .toString();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hapus Acara?'),
+        content: Text(
+          'Acara "$eventTitle" akan disembunyikan dari daftar admin dan user. Riwayat peserta donor lama tetap aman.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('acara')
+          .doc(widget.eventId)
+          .update({
+        'isDeleted': true,
+        'deletedAt': FieldValue.serverTimestamp(),
+        'deletedBy': 'admin',
+        'status': 'Dihapus',
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Acara berhasil dihapus.')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus acara: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _kirimPengingat() async {
     setState(() => _isLoading = true);
 
@@ -51,6 +112,9 @@ class _DetailAcaraPenyelenggaraPageState
       final title = 'Pengingat Donor Darah';
       final message =
           'Halo pahlawan! Mengingatkan jadwal donor darahmu di ${widget.eventData['tempat'] ?? 'lokasi PMI'} besok. Jangan sampai lupa ya!';
+      final notificationDocId = 'reminder_sent_${widget.eventId}';
+      final notificationKey =
+          LocalNotificationService.inboxNotificationKey(notificationDocId);
 
       List<String> daftarToken = [];
       var inboxCount = 0;
@@ -69,7 +133,7 @@ class _DetailAcaraPenyelenggaraPageState
               .collection('users')
               .doc(userId)
               .collection('notifikasi')
-              .doc('reminder_sent_${widget.eventId}')
+              .doc(notificationDocId)
               .set({
             'judul': title,
             'pesan': message,
@@ -86,8 +150,15 @@ class _DetailAcaraPenyelenggaraPageState
       final eventDate =
           (widget.eventData['tanggalPelaksanaan'] ?? '').toString();
       final eventTime = (widget.eventData['jamPelaksanaan'] ?? '').toString();
+      await LocalNotificationService.cancelNotification(
+        LocalNotificationService.stableNotificationId(
+          'admin_reminder_${widget.eventId}',
+        ),
+      );
       await LocalNotificationService.scheduleEventReminder(
-        id: widget.eventId.hashCode & 0x7fffffff,
+        id: LocalNotificationService.stableNotificationId(
+          notificationKey,
+        ),
         title: 'Pengingat Donor Darah',
         body:
             'Besok ada acara donor darah di ${widget.eventData['tempat'] ?? 'lokasi PMI'}. Jangan lupa ya!',
@@ -204,19 +275,21 @@ class _DetailAcaraPenyelenggaraPageState
             ),
           ),
         ),
-        if (widget.canEdit)
+        if (widget.canEdit) ...[
           InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EditAcaraPenyelenggaraPage(
-                    eventData: widget.eventData,
-                    eventId: widget.eventId,
-                  ),
-                ),
-              );
-            },
+            onTap: _isLoading
+                ? null
+                : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditAcaraPenyelenggaraPage(
+                          eventData: widget.eventData,
+                          eventId: widget.eventId,
+                        ),
+                      ),
+                    );
+                  },
             borderRadius: BorderRadius.circular(16),
             child: const Padding(
               padding: EdgeInsets.all(4),
@@ -226,9 +299,22 @@ class _DetailAcaraPenyelenggaraPageState
                 color: AppColors.textDark,
               ),
             ),
-          )
-        else
-          const SizedBox(width: 26),
+          ),
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: _isLoading ? null : _hapusAcara,
+            borderRadius: BorderRadius.circular(16),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ] else
+          const SizedBox(width: 54),
       ],
     );
   }

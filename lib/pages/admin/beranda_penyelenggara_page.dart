@@ -52,7 +52,7 @@ class BerandaPenyelenggaraPage extends StatelessWidget {
               children: [
                 _buildHeader(context),
                 const SizedBox(height: 18), // Sedikit diperlebar
-                _buildGreeting(), // 👇 Tambahan Sapaan Admin
+                _buildGreeting(), // ðŸ‘‡ Tambahan Sapaan Admin
                 const SizedBox(height: 18),
                 Expanded(
                   child: ListView(
@@ -123,7 +123,6 @@ class BerandaPenyelenggaraPage extends StatelessWidget {
                         stream: FirebaseFirestore.instance
                             .collection('acara')
                             .orderBy('tanggalDibuat', descending: true)
-                            .limit(3)
                             .snapshots(),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
@@ -148,8 +147,27 @@ class BerandaPenyelenggaraPage extends StatelessWidget {
                             );
                           }
 
+                          final docs = snapshot.data!.docs.where((doc) {
+                            final data =
+                                doc.data() as Map<String, dynamic>? ?? {};
+                            return !isEventDeleted(data);
+                          }).toList();
+
+                          if (docs.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: Text(
+                                  'Belum ada acara donor darah yang dibuat.',
+                                  style: TextStyle(
+                                      color: AppColors.textGrey, fontSize: 12),
+                                ),
+                              ),
+                            );
+                          }
+
                           return Column(
-                            children: snapshot.data!.docs.map((doc) {
+                            children: docs.map((doc) {
                               Map<String, dynamic> data =
                                   doc.data() as Map<String, dynamic>? ?? {};
                               return Padding(
@@ -305,7 +323,7 @@ class BerandaPenyelenggaraPage extends StatelessWidget {
   Widget _buildSummaryParticipantCard(BuildContext context, int totalPeserta) {
     return InkWell(
       onTap: () {
-        // 👇 Diperbaiki agar mengarah lurus ke Halaman Data Pengguna
+        // ðŸ‘‡ Diperbaiki agar mengarah lurus ke Halaman Data Pengguna
         Navigator.push(
           context,
           MaterialPageRoute(

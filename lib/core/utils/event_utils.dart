@@ -116,6 +116,14 @@ DateTime? parseEventDateTime(String? dateValue, String? timeValue) {
   return DateTime(date.year, date.month, date.day, hour, minute);
 }
 
+bool isEventDeleted(Map<String, dynamic> data) {
+  final status =
+      (data['statusAcara'] ?? data['status'] ?? '').toString().toLowerCase();
+  return data['isDeleted'] == true ||
+      status == 'dihapus' ||
+      status == 'deleted';
+}
+
 bool isEventCompleted(
   Map<String, dynamic> data, {
   DateTime? reference,
@@ -133,6 +141,54 @@ bool isEventCompleted(
   if (eventDateTime == null) return false;
 
   return eventDateTime.isBefore(reference ?? DateTime.now());
+}
+
+DateTime? _notificationDateTime(dynamic value) {
+  if (value == null) return null;
+  if (value is DateTime) return value;
+
+  try {
+    final converted = value.toDate();
+    if (converted is DateTime) return converted;
+  } catch (_) {}
+
+  return DateTime.tryParse(value.toString());
+}
+
+bool shouldShowInboxNotificationNow(
+  Map<String, dynamic> data, {
+  DateTime? reference,
+}) {
+  if (data['dibaca'] == true) return false;
+
+  final type = (data['tipe'] ?? '').toString();
+  if (type != 'pengingat_acara') return true;
+
+  final scheduledTime = _notificationDateTime(
+    data['waktuTerjadwal'] ?? data['waktu'],
+  );
+  if (scheduledTime == null) return true;
+
+  return !scheduledTime.isAfter(reference ?? DateTime.now());
+}
+
+bool canRequestEventReminder({
+  required bool isLoading,
+  required bool isCheckingReminder,
+  required bool isReminderSet,
+}) {
+  return !isLoading && !isCheckingReminder && !isReminderSet;
+}
+
+String reminderButtonText({
+  required bool isLoading,
+  required bool isCheckingReminder,
+  required bool isReminderSet,
+}) {
+  if (isLoading) return '';
+  if (isCheckingReminder) return 'Mengecek...';
+  if (isReminderSet) return 'Pengingat Aktif';
+  return 'Ingatkan Saya';
 }
 
 int parseBagCount(dynamic value) {
