@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../core/session/account_deletion_guard.dart';
+import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/profile_utils.dart';
 import '../../widgets/app_logo_header.dart';
@@ -23,7 +25,9 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  Future<bool> _emailSudahTerdaftar(String email) async {
+  Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _findUserByEmail(
+    String email,
+  ) async {
     final emailLower = normalizeEmail(email);
     final usersRef = FirebaseFirestore.instance.collection('users');
 
@@ -31,11 +35,108 @@ class _RegisterPageState extends State<RegisterPage> {
         .where('emailLower', isEqualTo: emailLower)
         .limit(1)
         .get();
-    if (emailLowerResult.docs.isNotEmpty) return true;
+    if (emailLowerResult.docs.isNotEmpty) return emailLowerResult.docs.first;
+
+    final deletedEmailLowerResult = await usersRef
+        .where('deletedEmailLower', isEqualTo: emailLower)
+        .limit(1)
+        .get();
+    if (deletedEmailLowerResult.docs.isNotEmpty) {
+      return deletedEmailLowerResult.docs.first;
+    }
 
     final emailResult =
         await usersRef.where('email', isEqualTo: email).limit(1).get();
-    return emailResult.docs.isNotEmpty;
+    if (emailResult.docs.isNotEmpty) return emailResult.docs.first;
+
+    return null;
+  }
+
+  Future<bool> _emailDipakaiUserAktif(String email) async {
+    final userDoc = await _findUserByEmail(email);
+    if (userDoc == null) return false;
+
+    return !isSoftDeletedUser(userDoc.data());
+  }
+
+  Future<QueryDocumentSnapshot<Map<String, dynamic>>?> _findDeletedUserByEmail(
+    String email,
+  ) async {
+    final userDoc = await _findUserByEmail(email);
+    if (userDoc == null || !isSoftDeletedUser(userDoc.data())) return null;
+
+    return userDoc;
+  }
+
+  Future<UserCredential> _createOrRestoreAuthAccount({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      return await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code != 'email-already-in-use') rethrow;
+
+      final deletedUser = await _findDeletedUserByEmail(email);
+      if (deletedUser == null) rethrow;
+
+      AccountDeletionGuard.suspendDeletedAccountSignOut = true;
+      try {
+        return await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      } on FirebaseAuthException {
+        throw FirebaseAuthException(
+          code: 'deleted-auth-email-needs-admin-cleanup',
+        );
+      }
+    }
+  }
+
+  Future<void> _saveRegisteredUser({
+    required String userId,
+    required String email,
+    required String emailLower,
+    required String nama,
+    required String phone,
+  }) async {
+    final userRef = FirebaseFirestore.instance.collection('users').doc(userId);
+
+    await userRef.set({
+      'email': email,
+      'emailLower': emailLower,
+      'namaLengkap': nama,
+      'noHp': phone,
+      'nomorHandphone': phone,
+      'role': 'pendonor',
+      'status': 'Pending',
+      'isDeleted': false,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await userRef.update({
+      'deletedAt': FieldValue.delete(),
+      'deletedBy': FieldValue.delete(),
+      'deletedEmail': FieldValue.delete(),
+      'deletedEmailLower': FieldValue.delete(),
+    });
+  }
+
+  Future<void> _goToLoginAfterRegister() async {
+    await AdminSession.clear();
+    await FirebaseAuth.instance.signOut();
+    AccountDeletionGuard.suspendDeletedAccountSignOut = false;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pendaftaran berhasil! Silakan masuk.')),
+    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _prosesDaftar() async {
@@ -57,7 +158,7 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final emailSudahAda = await _emailSudahTerdaftar(email);
+      final emailSudahAda = await _emailDipakaiUserAktif(email);
       if (emailSudahAda) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -69,37 +170,33 @@ class _RegisterPageState extends State<RegisterPage> {
         return;
       }
 
-      // 2. Buat akun dengan Firebase Auth
-      UserCredential userCredential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
-
-      // 3. Simpan data tambahan ke Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .set({
-        'email': email,
-        'emailLower': emailLower,
-        'namaLengkap': nama,
-        'noHp': phone,
-        'nomorHandphone': phone,
-        'role': 'pendonor',
-        'status': 'Pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pendaftaran berhasil! Silakan masuk.')),
-        );
-        Navigator.pop(context);
+      final userCredential = await _createOrRestoreAuthAccount(
+        email: email,
+        password: password,
+      );
+      final userId = userCredential.user?.uid;
+      if (userId == null) {
+        throw FirebaseAuthException(code: 'user-not-found');
       }
+
+      await _saveRegisteredUser(
+        userId: userId,
+        email: email,
+        emailLower: emailLower,
+        nama: nama,
+        phone: phone,
+      );
+
+      await _goToLoginAfterRegister();
     } on FirebaseAuthException catch (e) {
       String pesanError = 'Terjadi kesalahan saat mendaftar';
       if (e.code == 'weak-password') {
         pesanError = 'Kata sandi terlalu lemah (minimal 6 karakter).';
       } else if (e.code == 'email-already-in-use') {
         pesanError = 'Email ini sudah terdaftar sebelumnya.';
+      } else if (e.code == 'deleted-auth-email-needs-admin-cleanup') {
+        pesanError =
+            'Email ini pernah dihapus, tetapi akun Auth lama masih tersimpan. Hapus akun Auth lewat Firebase Console/Admin SDK atau gunakan kata sandi akun lama untuk daftar ulang.';
       } else if (e.code == 'invalid-email') {
         pesanError = 'Format email tidak valid.';
       }
@@ -113,6 +210,7 @@ class _RegisterPageState extends State<RegisterPage> {
         SnackBar(content: Text('Terjadi kesalahan sistem: $e')),
       );
     } finally {
+      AccountDeletionGuard.suspendDeletedAccountSignOut = false;
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -191,10 +289,10 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget _buildTitle() {
     return const Text(
       'Daftar Akun',
-     style: TextStyle(
+      style: TextStyle(
         fontSize: 22,
-       fontWeight: FontWeight.w700,
-       color: AppColors.textDark,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textDark,
       ),
     );
   }
@@ -206,7 +304,7 @@ class _RegisterPageState extends State<RegisterPage> {
         Container(
           width: 2.5,
           height: 56,
-         margin: const EdgeInsets.only(top: 2),
+          margin: const EdgeInsets.only(top: 2),
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(2),
@@ -215,11 +313,11 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(width: 10),
         const Expanded(
           child: Text.rich(
-           TextSpan(
-             style: TextStyle(
+            TextSpan(
+              style: TextStyle(
                 fontSize: 13,
-               height: 1.35,
-               color: AppColors.textGrey,
+                height: 1.35,
+                color: AppColors.textGrey,
               ),
               children: [
                 TextSpan(
@@ -245,24 +343,24 @@ class _RegisterPageState extends State<RegisterPage> {
     required String hint,
     required TextEditingController controller,
     bool obscureText = false,
-   bool isPassword = false,
-   TextInputType keyboardType = TextInputType.text,
- }) {
-   return SizedBox(
+    bool isPassword = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return SizedBox(
       height: 52,
-     child: TextField(
-       controller: controller,
-       obscureText: obscureText,
-       keyboardType: keyboardType,
-       style: const TextStyle(
+      child: TextField(
+        controller: controller,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        style: const TextStyle(
           fontSize: 14,
-         color: AppColors.textDark,
-       ),
-       decoration: InputDecoration(
-         hintText: hint,
-         hintStyle: const TextStyle(
+          color: AppColors.textDark,
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(
             fontSize: 13,
-           color: AppColors.textGrey,
+            color: AppColors.textGrey,
           ),
           filled: true,
           fillColor: AppColors.white,
@@ -304,11 +402,11 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _buildRegisterButton(BuildContext context) {
-   return SizedBox(
-     width: double.infinity,
+    return SizedBox(
+      width: double.infinity,
       height: 52,
-     child: ElevatedButton(
-       onPressed: _isLoading ? null : _prosesDaftar,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _prosesDaftar,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
@@ -328,9 +426,9 @@ class _RegisterPageState extends State<RegisterPage> {
               )
             : const Text(
                 'Daftar',
-               style: TextStyle(
+                style: TextStyle(
                   fontSize: 15,
-                 fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
       ),
@@ -345,10 +443,10 @@ class _RegisterPageState extends State<RegisterPage> {
           padding: EdgeInsets.symmetric(vertical: 4),
           child: Text(
             'Kembali',
-           style: TextStyle(
+            style: TextStyle(
               fontSize: 14,
-             fontWeight: FontWeight.w500,
-             color: AppColors.primary,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primary,
             ),
           ),
         ),

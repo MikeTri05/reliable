@@ -582,10 +582,23 @@ class _DataPenggunaPenyelenggaraPageState
 
     setState(() => _deletingUserId = userId);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+      final userRef =
+          FirebaseFirestore.instance.collection('users').doc(userId);
+      final userSnapshot = await userRef.get();
+      final userData = userSnapshot.data();
+      final email = (userData?['email'] ?? '').toString().trim();
+      final emailLower =
+          (userData?['emailLower'] ?? email.toLowerCase()).toString().trim();
+
+      await userRef.update({
         'isDeleted': true,
         'deletedAt': FieldValue.serverTimestamp(),
         'deletedBy': 'admin',
+        'deletedEmail': email.isEmpty ? FieldValue.delete() : email,
+        'deletedEmailLower':
+            emailLower.isEmpty ? FieldValue.delete() : emailLower,
+        'email': FieldValue.delete(),
+        'emailLower': FieldValue.delete(),
         'status': 'Dihapus',
       });
 

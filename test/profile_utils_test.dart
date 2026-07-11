@@ -11,4 +11,12 @@ void main() {
     expect(normalizeBloodType('ab-'), 'AB-');
     expect(normalizeBloodType('unknown'), 'A+');
   });
+
+  test('detects soft deleted users', () {
+    expect(isSoftDeletedUser({'isDeleted': true}), isTrue);
+    expect(isSoftDeletedUser({'status': 'Dihapus'}), isTrue);
+    expect(isSoftDeletedUser({'status': 'deleted'}), isTrue);
+    expect(isSoftDeletedUser({'status': 'Pending'}), isFalse);
+    expect(isSoftDeletedUser(null), isFalse);
+  });
 }

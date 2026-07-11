@@ -1,10 +1,13 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'core/constants/app_assets.dart';
+import 'core/session/account_deletion_guard.dart';
 import 'core/session/admin_session.dart';
 import 'core/theme/app_colors.dart';
+import 'core/utils/profile_utils.dart';
 import 'core/utils/local_notification_service.dart';
 import 'pages/admin/beranda_penyelenggara_page.dart';
 import 'pages/user/login_page.dart';
@@ -67,8 +70,9 @@ class AuthGate extends StatelessWidget {
           return const _SplashPage();
         }
 
-        if (authSnapshot.data != null) {
-          return const BerandaPage();
+        final user = authSnapshot.data;
+        if (user != null) {
+          return UserAccountGate(userId: user.uid);
         }
 
         return FutureBuilder<bool>(
@@ -85,6 +89,59 @@ class AuthGate extends StatelessWidget {
             return const LoginPage();
           },
         );
+      },
+    );
+  }
+}
+
+class UserAccountGate extends StatefulWidget {
+  final String userId;
+
+  const UserAccountGate({super.key, required this.userId});
+
+  @override
+  State<UserAccountGate> createState() => _UserAccountGateState();
+}
+
+class _UserAccountGateState extends State<UserAccountGate> {
+  bool _handledDeletedAccount = false;
+
+  Future<void> _forceSignOut() async {
+    await AdminSession.clear();
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.userId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _SplashPage();
+        }
+
+        final data = snapshot.data?.data();
+        final deleted = snapshot.hasData &&
+            (!snapshot.data!.exists || isSoftDeletedUser(data));
+        if (deleted) {
+          if (!AccountDeletionGuard.suspendDeletedAccountSignOut &&
+              !_handledDeletedAccount) {
+            _handledDeletedAccount = true;
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => _forceSignOut());
+          }
+          return const LoginPage();
+        }
+
+        return const BerandaPage();
       },
     );
   }

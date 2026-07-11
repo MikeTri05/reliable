@@ -1,9 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/session/admin_session.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/profile_utils.dart';
 import 'beranda_page.dart';
 import '../admin/login_penyelenggara_page.dart';
 import 'lupa_kata_sandi_page.dart';
@@ -42,10 +44,29 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+      final uid = credential.user?.uid;
+      if (uid == null) {
+        throw FirebaseAuthException(code: 'user-not-found');
+      }
+
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final userData = userDoc.data();
+      if (!userDoc.exists || isSoftDeletedUser(userData)) {
+        await FirebaseAuth.instance.signOut();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Akun ini sudah dihapus dan tidak dapat digunakan.'),
+          ),
+        );
+        return;
+      }
+
       await AdminSession.clear();
       if (!mounted) return;
 
@@ -169,23 +190,23 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                   'Reliable Emergency',
-                   style: TextStyle(
+                    'Reliable Emergency',
+                    style: TextStyle(
                       fontSize: 16,
-                     fontWeight: FontWeight.w500,
-                     color: AppColors.lightPink,
-                     height: 1.05,
-                   ),
-                 ),
-                 SizedBox(height: 2),
-                 Text(
-                   'Donor',
-                   style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.lightPink,
+                      height: 1.05,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Donor',
+                    style: TextStyle(
                       fontSize: 20,
-                     fontWeight: FontWeight.w700,
-                     color: AppColors.primary,
-                     height: 1.0,
-                   ),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                      height: 1.0,
+                    ),
                   ),
                 ],
               ),
@@ -199,11 +220,11 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildTitle() {
     return const Text(
       'Selamat Datang!',
-     style: TextStyle(
+      style: TextStyle(
         fontSize: 22,
-       fontWeight: FontWeight.w700,
-       color: AppColors.textDark,
-       height: 1.1,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textDark,
+        height: 1.1,
       ),
     );
   }
@@ -224,12 +245,12 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(width: 9),
         const Expanded(
           child: Text.rich(
-           TextSpan(
-             style: TextStyle(
+            TextSpan(
+              style: TextStyle(
                 fontSize: 13,
-               height: 1.35,
-               color: AppColors.textGrey,
-               fontWeight: FontWeight.w400,
+                height: 1.35,
+                color: AppColors.textGrey,
+                fontWeight: FontWeight.w400,
               ),
               children: [
                 TextSpan(
@@ -256,32 +277,32 @@ class _LoginPageState extends State<LoginPage> {
     required bool obscureText,
     required TextEditingController controller,
     bool isPassword = false,
- }) {
-   return SizedBox(
+  }) {
+    return SizedBox(
       height: 52,
-     child: TextField(
-       obscureText: obscureText,
-       controller: controller,
-       style: const TextStyle(
+      child: TextField(
+        obscureText: obscureText,
+        controller: controller,
+        style: const TextStyle(
           fontSize: 14,
-         color: AppColors.textDark,
-       ),
-       decoration: InputDecoration(
-         hintText: hintText,
-         hintStyle: const TextStyle(
+          color: AppColors.textDark,
+        ),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: const TextStyle(
             fontSize: 13,
-           color: AppColors.textGrey,
-         ),
-         filled: true,
-         fillColor: AppColors.white,
-         isDense: true,
-         suffixIcon: isPassword
-             ? IconButton(
-                 splashRadius: 18,
-                 icon: Icon(
-                   _obscurePassword
-                       ? Icons.visibility_off_outlined
-                       : Icons.visibility_outlined,
+            color: AppColors.textGrey,
+          ),
+          filled: true,
+          fillColor: AppColors.white,
+          isDense: true,
+          suffixIcon: isPassword
+              ? IconButton(
+                  splashRadius: 18,
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     size: 20,
                     color: AppColors.textGrey,
                   ),
@@ -313,11 +334,11 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildLoginButton(BuildContext context) {
-   return SizedBox(
-     width: double.infinity,
+    return SizedBox(
+      width: double.infinity,
       height: 52,
-     child: ElevatedButton(
-       onPressed: _isLoading ? null : _prosesLogin,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _prosesLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
@@ -338,9 +359,9 @@ class _LoginPageState extends State<LoginPage> {
               )
             : const Text(
                 'Masuk',
-               style: TextStyle(
+                style: TextStyle(
                   fontSize: 15,
-                 fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
       ),
@@ -366,11 +387,11 @@ class _LoginPageState extends State<LoginPage> {
         ),
         child: const Text(
           'Daftar',
-         style: TextStyle(
+          style: TextStyle(
             fontSize: 13,
-           fontWeight: FontWeight.w500,
-           color: AppColors.primary,
-           height: 1.1,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary,
+            height: 1.1,
           ),
         ),
       ),
@@ -396,11 +417,11 @@ class _LoginPageState extends State<LoginPage> {
         ),
         child: const Text(
           'Lupa Kata Sandi',
-         style: TextStyle(
+          style: TextStyle(
             fontSize: 13,
-           fontWeight: FontWeight.w500,
-           color: AppColors.primary,
-           height: 1.1,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary,
+            height: 1.1,
           ),
         ),
       ),
@@ -412,9 +433,9 @@ class _LoginPageState extends State<LoginPage> {
       child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-         style: const TextStyle(
+          style: const TextStyle(
             fontSize: 13,
-           color: AppColors.textDark,
+            color: AppColors.textDark,
           ),
           children: [
             const TextSpan(text: 'Masuk Sebagai '),

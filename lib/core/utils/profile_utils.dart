@@ -11,6 +11,15 @@ const List<String> bloodTypeOptions = [
 
 String normalizeEmail(String value) => value.trim().toLowerCase();
 
+bool isSoftDeletedUser(Map<String, dynamic>? data) {
+  if (data == null) return false;
+
+  final status = (data['status'] ?? '').toString().toLowerCase();
+  return data['isDeleted'] == true ||
+      status == 'dihapus' ||
+      status == 'deleted';
+}
+
 String normalizeBloodType(String? value) {
   final raw = value?.trim().toUpperCase() ?? '';
 
